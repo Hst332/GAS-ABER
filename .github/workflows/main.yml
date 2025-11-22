@@ -1,57 +1,43 @@
-name: Gas Price Forecast
+name: Daily Gas Forecast
 
 on:
   schedule:
-    - cron:  30 6 * * *"   # 07:30 Deutschland / 06:30 UTC
+    - cron: "30 7 * * *"  # Jeden Tag um 07:30 UTC
   workflow_dispatch:
-
-permissions:
-  contents: write     # <<<<< WICHTIG! Erlaubt Push zurück ins Repo
 
 jobs:
   forecast:
     runs-on: ubuntu-latest
 
-    env:
-      EIA_STORAGE: 6.5
-      US_PRODUCTION: 5.0
-      LNG_FEEDGAS: 7.0
-      FUTURES_CURVE: 4.5
-      COT_MANAGED_MONEY: 3.0
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          persist-credentials: true
+      - name: Checkout Repo
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Run Gas Price Forecast
+      - name: Install Dependencies
         run: |
-          python gas_price_forecast.py \
-            --eia-storage $EIA_STORAGE \
-            --us-production $US_PRODUCTION \
-            --lng-feedgas $LNG_FEEDGAS \
-            --futures-curve $FUTURES_CURVE \
-            --cot-managed-money $COT_MANAGED_MONEY
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-                  - name: Fetch EIA Storage
+      - name: Export Secrets
+        run: echo "EIA_API_KEY=${{ secrets.EIA_API_KEY }}" >> $GITHUB_ENV
+
+      - name: Fetch EIA Storage
+        run: python fetch_eia_storage.py > eia_storage.txt
+
+      - name: Run Forecast
+        run: python gas_price_forecast.py > forecast_output.txt
+
+      - name: Commit & Push Results
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
-          python fetch_eia_storage.py > eia_storage.txt
-
-      - name: Show EIA Storage Output
-        run: cat eia_storage.txt
-
-
-      - name: Commit forecast file
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git add forecast_output.txt
-          git commit -m "Updated forecast output" || echo "No changes to commit"
-          git push
+          git config --global user.name "automation-bot"
+          git config --global user.email "actions@github.com"
+          git add eia_storage.txt forecast_output.txt
+          git commit -m "Daily update"
+          git push https://automation-bot:${GH_PAT}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
