@@ -2,7 +2,7 @@ name: Gas Price Forecast
 
 on:
   schedule:
-    - cron: "30 6 * * *"   # 07:30 Deutschland / 06:30 UTC
+    - cron:  30 6 * * *"   # 07:30 Deutschland / 06:30 UTC
   workflow_dispatch:
 
 permissions:
@@ -39,6 +39,14 @@ jobs:
             --lng-feedgas $LNG_FEEDGAS \
             --futures-curve $FUTURES_CURVE \
             --cot-managed-money $COT_MANAGED_MONEY
+
+                  - name: Fetch EIA Storage
+        run: |
+          python fetch_eia_storage.py > eia_storage.txt
+
+      - name: Show EIA Storage Output
+        run: cat eia_storage.txt
+
 
       - name: Commit forecast file
         run: |
