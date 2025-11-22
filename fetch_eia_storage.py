@@ -6,25 +6,25 @@ API_KEY = os.getenv("EIA_API_KEY")
 def fetch_eia_storage():
     url = (
         "https://api.eia.gov/v2/natural-gas/stor/wngsr/data/"
-        f"?api_key={API_KEY}"
-        "&frequency=weekly"
+        "?frequency=weekly"
+        "&facets[region][]=N5010"       # <<< WICHTIG: Lower 48 total
         "&data=value"
         "&sort=period:desc"
         "&offset=0"
         "&length=1"
+        f"&api_key={API_KEY}"
     )
 
     r = requests.get(url)
     r.raise_for_status()
     data = r.json()
 
-    # Defensive check
     if "response" not in data or "data" not in data["response"]:
-        raise ValueError("Unerwartetes EIA API Format")
+        raise ValueError("Unerwartetes API Format: " + str(data))
 
-    latest = data["response"]["data"][0]
-    value = latest["value"]
-    date = latest["period"]
+    entry = data["response"]["data"][0]
+    value = entry["value"]
+    date = entry["period"]
 
     return value, date
 
