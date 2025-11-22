@@ -1,28 +1,23 @@
-name: Daily Gas Forecast
+import requests
+import os
 
-on:
-  schedule:
-    - cron: "30 7 * * *"  # täglich 07:30 UTC
-  workflow_dispatch:
+def fetch_eia_storage():
+    api_key = os.environ.get("EIA_API_KEY")  # API Key aus GitHub Secrets
+    if not api_key:
+        raise ValueError("Bitte EIA_API_KEY als Secret setzen")
+    
+    url = (
+        "https://api.eia.gov/v2/natural-gas/stor/wngsr/data/"
+        f"?api_key={api_key}&frequency=weekly&facets[region][]=N5010"
+        "&data[0]=value&sort[0][column]=period&sort[0][direction]=desc&offset=0&length=1"
+    )
+    r = requests.get(url)
+    r.raise_for_status()
+    data = r.json()
+    value = data['response']['data'][0]['value']
+    date = data['response']['data'][0]['period']
+    return value, date
 
-jobs:
-  forecast:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run forecast
-        run: |
-          python gas_price_forecast.py \
-            --eia-storage 6.5 \
-            --us-production 5.0 \
-            --lng-feedgas 7.0 \
-            --futures-curve 4.5 \
-            --cot-managed-money 3.0 > forecast_output.txt
-      - name: Show forecast
-        run: cat forecast_output.txt
+if __name__ == "__main__":
+    value, date = fetch_eia_storage()
+    print(value)
