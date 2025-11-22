@@ -25,5 +25,4 @@ jobs:
           python -m pip install --upgrade pip
 
       - name: Run Gas Price Forecast
-        run: |
-          python gas.py
+        run: python gas.py
