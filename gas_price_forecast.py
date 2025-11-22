@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 
 def main():
     parser = argparse.ArgumentParser(description="NatGas Forecast basierend auf gewichteten Fundamentaldaten")
@@ -31,21 +32,31 @@ def main():
 
     # Score berechnen
     weighted_score = sum(values[f] * w for f, w in factors.items())
-    max_possible = 10  # Wir nehmen an: Faktorwerte 0–10
-
+    max_possible = 10  # Annahme 0–10 pro Faktor
     max_score = sum(max_possible * w for w in factors.values())
     prob_rise = (weighted_score / max_score) * 100
 
-    print("===================================")
-    print("      NATURAL GAS PRICE FORECAST   ")
-    print("===================================")
-    print("Eingabewerte:")
+    # Ausgabe
+    output = []
+    output.append("===================================")
+    output.append("      NATURAL GAS PRICE FORECAST   ")
+    output.append("===================================")
+    output.append(f"Datum: {datetime.utcnow()} (UTC)\n")
+    output.append("Eingabewerte:")
     for k, v in values.items():
-        print(f"  {k:20}: {v}")
+        output.append(f"  {k:20}: {v}")
 
-    print("\nGewichteter Score:", round(weighted_score, 2))
-    print(f"Wahrscheinlichkeit, dass Gaspreis steigt: {prob_rise:.1f}%")
-    print("===================================")
+    output.append("\nGewichteter Score: " + str(round(weighted_score, 2)))
+    output.append(f"Wahrscheinlichkeit, dass Gaspreis steigt: {prob_rise:.1f}%")
+    output.append("===================================")
+
+    text_output = "\n".join(output)
+
+    print(text_output)
+
+    # Datei speichern
+    with open("forecast_output.txt", "w") as f:
+        f.write(text_output)
 
 
 if __name__ == "__main__":
