@@ -2,15 +2,17 @@ name: Gas Price Forecast
 
 on:
   schedule:
-    - cron: "30 6 * * *"   # 07:30 Deutschland (06:30 UTC)
+    - cron: "30 6 * * *"   # 07:30 Deutschland / 06:30 UTC
   workflow_dispatch:
+
+permissions:
+  contents: write     # <<<<< WICHTIG! Erlaubt Push zurück ins Repo
 
 jobs:
   forecast:
     runs-on: ubuntu-latest
 
     env:
-      # Beispielwerte – DU KANNST SIE ÄNDERN!
       EIA_STORAGE: 6.5
       US_PRODUCTION: 5.0
       LNG_FEEDGAS: 7.0
@@ -43,5 +45,5 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           git add forecast_output.txt
-          git commit -m "Updated forecast output"
+          git commit -m "Updated forecast output" || echo "No changes to commit"
           git push
