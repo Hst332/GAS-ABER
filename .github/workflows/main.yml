@@ -26,4 +26,4 @@ jobs:
 
       - name: Run Gas Price Forecast
         run: |
-          python gas_price_forecast.py
+          python gas.py
