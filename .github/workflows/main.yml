@@ -1,8 +1,8 @@
 name: Gas Price Forecast
 
 on:
-  push:
-    branches: [main]
+  schedule:
+    - cron: "30 6 * * *"   # 07:30 Deutschland (06:30 UTC)
   workflow_dispatch:
 
 jobs:
@@ -20,15 +20,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-
-      - name: Install dependencies (optional)
-        if: hashFiles('requirements.txt') != ''
-        run: pip install -r requirements.txt
 
       - name: Run Gas Price Forecast
         run: |
@@ -38,3 +37,11 @@ jobs:
             --lng-feedgas $LNG_FEEDGAS \
             --futures-curve $FUTURES_CURVE \
             --cot-managed-money $COT_MANAGED_MONEY
+
+      - name: Commit forecast file
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add forecast_output.txt
+          git commit -m "Updated forecast output"
+          git push
