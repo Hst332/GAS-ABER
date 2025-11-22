@@ -1,37 +1,35 @@
-import requests
 import os
+import requests
 
+API_KEY = os.getenv("EIA_API_KEY")
 
 def fetch_eia_storage():
-    """
-    Holt den neuesten EIA Working Gas in Storage Wert (Lower 48).
-    Gibt (wert, datum) zurück.
-    """
-
-    api_key = os.getenv("EIA_API_KEY")
-    if not api_key:
-        raise ValueError("EIA_API_KEY not found in environment variables!")
-
     url = (
         "https://api.eia.gov/v2/natural-gas/stor/wngsr/data/"
-        f"?api_key={api_key}"
+        f"?api_key={API_KEY}"
         "&frequency=weekly"
-        "&data[0]=value"
-        "&sort[0][column]=period&sort[0][direction]=desc"
-        "&offset=0&length=1"
+        "&data=value"
+        "&sort=period:desc"
+        "&offset=0"
+        "&length=1"
     )
 
-    r = requests.get(url, timeout=20)
+    r = requests.get(url)
     r.raise_for_status()
     data = r.json()
 
-    entry = data["response"]["data"][0]
-    value = float(entry["value"])
-    date = entry["period"]
+    # Defensive check
+    if "response" not in data or "data" not in data["response"]:
+        raise ValueError("Unerwartetes EIA API Format")
+
+    latest = data["response"]["data"][0]
+    value = latest["value"]
+    date = latest["period"]
 
     return value, date
 
 
 if __name__ == "__main__":
     value, date = fetch_eia_storage()
-    print(f"EIA Storage latest ({date}): {value}")
+    print(f"EIA_STORAGE_VALUE={value}")
+    print(f"EIA_STORAGE_DATE={date}")
