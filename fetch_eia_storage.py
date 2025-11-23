@@ -8,11 +8,10 @@ def fetch_eia_storage():
         print("ERROR: Missing API key")
         return None, None
 
-    # Old but STILL ACTIVE + correct
+    # Correct v2 backward-compatible endpoint
     url = (
-        "https://api.eia.gov/series/"
+        "https://api.eia.gov/v2/seriesid/NG.WKST.S"
         f"?api_key={api_key}"
-        "&series_id=NG.WKST.S"   # Total Working Gas in Storage (weekly)
     )
 
     r = requests.get(url)
@@ -26,9 +25,15 @@ def fetch_eia_storage():
 
     try:
         data = r.json()
-        value = data["series"][0]["data"][0][1]  # Most recent storage value
-        period = data["series"][0]["data"][0][0]  # Week
+
+        # New v2 structure:
+        # data → response → data → [{ period, value }]
+        latest = data["response"]["data"][0]
+        value = latest["value"]
+        period = latest["period"]
+
         return value, period
+
     except Exception as e:
         print("PARSE_ERROR:", e)
         return "ERROR", None
