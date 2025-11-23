@@ -1,6 +1,5 @@
 import os
 import requests
-import json
 
 def fetch_eia_storage():
     api_key = os.getenv("EIA_API_KEY", "")
@@ -8,8 +7,9 @@ def fetch_eia_storage():
         print("ERROR: Missing API key")
         return None, None
 
+    # NEW VALID ENDPOINT (2024+)
     url = (
-        "https://api.eia.gov/v2/natural-gas/wngsr/data/"
+        "https://api.eia.gov/v2/natural-gas/ngsps/data/"
         "?frequency=weekly"
         "&sort[0][column]=period"
         "&sort[0][direction]=desc"
@@ -18,9 +18,9 @@ def fetch_eia_storage():
         f"&api_key={api_key}"
     )
 
-    print(f"DEBUG_URL: {url}")
-
     r = requests.get(url)
+
+    print(f"DEBUG_URL: {url}")
     print(f"DEBUG_STATUS: {r.status_code}")
     print(f"DEBUG_RAW_RESPONSE: {r.text}")
 
@@ -29,7 +29,7 @@ def fetch_eia_storage():
 
     try:
         data = r.json()
-        value = data["response"]["data"][0]["value"]
+        value = data["response"]["data"][0]["storage"]
         period = data["response"]["data"][0]["period"]
         return value, period
     except Exception as e:
@@ -39,7 +39,6 @@ def fetch_eia_storage():
 
 if __name__ == "__main__":
     value, date = fetch_eia_storage()
-
     if value == "ERROR":
         print("ERROR")
     else:
