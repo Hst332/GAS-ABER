@@ -1,5 +1,6 @@
 import os
 import requests
+import json
 
 def fetch_eia_storage():
     api_key = os.getenv("EIA_API_KEY", "")
@@ -7,30 +8,26 @@ def fetch_eia_storage():
         print("ERROR: Missing API key")
         return None, None
 
-    # NEW VALID ENDPOINT (2024+)
+    # Old but STILL ACTIVE + correct
     url = (
-        "https://api.eia.gov/v2/natural-gas/ngsps/data/"
-        "?frequency=weekly"
-        "&sort[0][column]=period"
-        "&sort[0][direction]=desc"
-        "&offset=0"
-        "&length=1"
-        f"&api_key={api_key}"
+        "https://api.eia.gov/series/"
+        f"?api_key={api_key}"
+        "&series_id=NG.WKST.S"   # Total Working Gas in Storage (weekly)
     )
 
     r = requests.get(url)
 
-    print(f"DEBUG_URL: {url}")
-    print(f"DEBUG_STATUS: {r.status_code}")
-    print(f"DEBUG_RAW_RESPONSE: {r.text}")
+    print("DEBUG_URL:", url)
+    print("DEBUG_STATUS:", r.status_code)
+    print("DEBUG_RAW_RESPONSE:", r.text)
 
     if r.status_code != 200:
         return "ERROR", None
 
     try:
         data = r.json()
-        value = data["response"]["data"][0]["storage"]
-        period = data["response"]["data"][0]["period"]
+        value = data["series"][0]["data"][0][1]  # Most recent storage value
+        period = data["series"][0]["data"][0][0]  # Week
         return value, period
     except Exception as e:
         print("PARSE_ERROR:", e)
