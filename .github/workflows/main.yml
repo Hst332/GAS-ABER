@@ -2,7 +2,7 @@ name: Daily Gas Forecast
 
 on:
   schedule:
-    - cron: "30 6 * * *"   # Täglich um 07:30 CET (Cron in UTC → 06:30)
+    - cron: "30 6 * * *"   # Täglich um 07:30 CET (Cron = UTC)
   workflow_dispatch:
 
 jobs:
@@ -11,10 +11,10 @@ jobs:
 
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
@@ -53,8 +53,8 @@ jobs:
             --cot-managed-money 3.0 \
             > forecast_output.txt
 
-      - name: Upload Output as Artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload forecast artifact
+        uses: actions/upload-artifact@v4
         with:
           name: gas_forecast
           path: forecast_output.txt
