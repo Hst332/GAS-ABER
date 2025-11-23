@@ -1,7 +1,34 @@
+name: Daily Gas Forecast
+
+on:
+  schedule:
+    - cron: "30 6 * * *"   # Täglich um 07:30 CET (Cron in UTC → 06:30)
+  workflow_dispatch:
+
+jobs:
+  run-forecast:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt || true
+
       - name: Fetch EIA Storage
         id: eia
+        env:
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: |
           python fetch_eia_storage.py 2> debug.log > eia_storage.txt
+
           echo "----- DEBUG LOG -----"
           cat debug.log
           echo "----------------------"
@@ -10,8 +37,24 @@
           echo "EIA_STORAGE_RAW=$STORAGE"
 
           if [ "$STORAGE" = "ERROR" ]; then
-            echo "EIA API returned no valid value"
+            echo "EIA API returned invalid value"
             exit 1
           fi
 
           echo "EIA_STORAGE=$STORAGE" >> $GITHUB_ENV
+
+      - name: Run Forecast
+        run: |
+          python gas_price_forecast.py \
+            --eia-storage "${EIA_STORAGE}" \
+            --us-production 5.0 \
+            --lng-feedgas 7.0 \
+            --futures-curve 4.5 \
+            --cot-managed-money 3.0 \
+            > forecast_output.txt
+
+      - name: Upload Output as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: gas_forecast
+          path: forecast_output.txt
