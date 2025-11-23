@@ -1,6 +1,7 @@
 import requests
 import os
 import sys
+import json
 
 def fetch_eia_storage():
     api_key = os.environ.get("EIA_API_KEY")
@@ -19,12 +20,16 @@ def fetch_eia_storage():
         f"&api_key={api_key}"
     )
 
+    print("DEBUG_URL:", url, file=sys.stderr)
+
     try:
         r = requests.get(url)
+        print("DEBUG_STATUS:", r.status_code, file=sys.stderr)
+        print("DEBUG_RAW_RESPONSE:", r.text, file=sys.stderr)
+
         r.raise_for_status()
         data = r.json()
 
-        # Sicherheit: prüfen, ob Daten vorhanden
         if "response" not in data or "data" not in data["response"]:
             print("ERROR: Unexpected EIA response format", file=sys.stderr)
             return None
