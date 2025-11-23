@@ -1,0 +1,38 @@
+name: Daily Gas Forecast
+
+on:
+  schedule:
+    - cron: "30 7 * * *"  # täglich 07:30 UTC
+  workflow_dispatch:
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch EIA Storage
+        id: eia
+        run: |
+          echo "STORAGE=$(python fetch_eia_storage.py)" >> $GITHUB_ENV
+
+      - name: Run gas price forecast
+        run: |
+          python gas_price_forecast.py \
+            --eia-storage $STORAGE \
+            --us-production 5.0 \
+            --lng-feedgas 7.0 \
+            --futures-curve 4.5 \
+            --cot-managed-money 3.0 \
+            > forecast_output.txt
+
+      - name: Show forecast
+        run: cat forecast_output.txt
