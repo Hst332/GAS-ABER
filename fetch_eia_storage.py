@@ -1,50 +1,46 @@
-import requests
 import os
-import sys
+import requests
 import json
 
 def fetch_eia_storage():
-    api_key = os.environ.get("EIA_API_KEY")
+    api_key = os.getenv("EIA_API_KEY", "")
     if not api_key:
-        print("ERROR: Missing EIA_API_KEY", file=sys.stderr)
-        return None
+        print("ERROR: Missing API key")
+        return None, None
 
     url = (
-        "https://api.eia.gov/v2/natural-gas/stor/wngsr/data/"
+        "https://api.eia.gov/v2/natural-gas/wngsr/data/"
         "?frequency=weekly"
-        "&facets[region][]=N5010"
-        "&data[0]=value"
         "&sort[0][column]=period"
         "&sort[0][direction]=desc"
-        "&offset=0&length=1"
+        "&offset=0"
+        "&length=1"
         f"&api_key={api_key}"
     )
 
-    print("DEBUG_URL:", url, file=sys.stderr)
+    print(f"DEBUG_URL: {url}")
+
+    r = requests.get(url)
+    print(f"DEBUG_STATUS: {r.status_code}")
+    print(f"DEBUG_RAW_RESPONSE: {r.text}")
+
+    if r.status_code != 200:
+        return "ERROR", None
 
     try:
-        r = requests.get(url)
-        print("DEBUG_STATUS:", r.status_code, file=sys.stderr)
-        print("DEBUG_RAW_RESPONSE:", r.text, file=sys.stderr)
-
-        r.raise_for_status()
         data = r.json()
-
-        if "response" not in data or "data" not in data["response"]:
-            print("ERROR: Unexpected EIA response format", file=sys.stderr)
-            return None
-
-        entry = data["response"]["data"][0]
-        return entry["value"]
-
+        value = data["response"]["data"][0]["value"]
+        period = data["response"]["data"][0]["period"]
+        return value, period
     except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        return None
+        print("PARSE_ERROR:", e)
+        return "ERROR", None
 
 
 if __name__ == "__main__":
-    value = fetch_eia_storage()
-    if value is None:
+    value, date = fetch_eia_storage()
+
+    if value == "ERROR":
         print("ERROR")
     else:
         print(value)
