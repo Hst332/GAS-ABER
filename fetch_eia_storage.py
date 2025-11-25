@@ -3,15 +3,29 @@ import requests
 
 CSV_URL = "https://ir.eia.gov/ngs/wngsr.csv"
 
-def debug_headers():
-    r = requests.get(CSV_URL)
-    r.raise_for_status()
+def fetch_storage():
+    try:
+        r = requests.get(CSV_URL, timeout=10)
+        r.raise_for_status()
 
-    lines = r.text.splitlines()
-    reader = csv.reader(lines)
+        lines = r.text.splitlines()
+        reader = csv.DictReader(lines)
 
-    headers = next(reader)
-    print("HEADERS:", headers)
+        latest = next(reader)  # first row = latest week
+
+        # Try both common column names
+        for col in ["Total Working Gas", "Working Gas"]:
+            if col in latest:
+                value = latest[col].replace(",", "").strip()
+                return float(value)
+
+        # fallback: no column found
+        return -1
+
+    except Exception:
+        return -1
+
 
 if __name__ == "__main__":
-    debug_headers()
+    value = fetch_storage()
+    print(value)
