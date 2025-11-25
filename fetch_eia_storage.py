@@ -1,25 +1,25 @@
 import csv
 import requests
-import os
 
-# EIA WNGSR CSV URL (aktuellste Daten)
-CSV_URL = "https://www.eia.gov/ngs/ngs.csv"  # Beispiel, bitte prüfen
+CSV_URL = "https://ir.eia.gov/ngs/wngsr.csv"
 
 def fetch_storage():
     r = requests.get(CSV_URL)
     r.raise_for_status()
 
-    reader = csv.DictReader(r.text.splitlines())
-    latest_row = next(reader)  # Erste Zeile = aktuellste
+    lines = r.text.splitlines()
+    reader = csv.DictReader(lines)
 
-    # Spaltenname anpassen, z.B. "Total Working Gas"
-    value = latest_row.get("Working Gas in Underground Storage (Bcf)")
-    if value is None:
-        raise ValueError("Spalte 'Working Gas in Underground Storage (Bcf)' nicht gefunden")
-    
-    os.environ["EIA_STORAGE"] = str(value)
-    with open(os.environ["GITHUB_ENV"], "a") as f:
-        f.write(f"EIA_STORAGE={value}\n")
+    # Wir suchen die Zeile "Total Lower 48" → das ist der landesweite Gesamtwert
+    for row in reader:
+        if row.get("Region") == "Total Lower 48":
+            value = row.get("Current_Storage")
+            if value is None or value == "":
+                raise ValueError("Spalte Current_Storage nicht gefunden oder leer")
+            print(value)   # WICHTIG: Nur Zahl ausgeben
+            return
+
+    raise ValueError("Region 'Total Lower 48' nicht gefunden")
 
 if __name__ == "__main__":
     fetch_storage()
