@@ -1,30 +1,23 @@
-# fetch_us_production.py
-import os
 import requests
+import os
 
-EIA_API_KEY = os.environ.get("EIA_API_KEY")
-if not EIA_API_KEY:
-    raise ValueError("EIA_API_KEY environment variable is not set")
-
-# Series ID für wöchentliche US-Natural-Gas-Produktion
-SERIES_ID = "NG.N9010US2.W"
-URL = f"https://api.eia.gov/v2/seriesid/{SERIES_ID}?api_key={EIA_API_KEY}"
+# Beispiel API für US Production, EIA API v2
+API_KEY = os.environ.get("EIA_API_KEY")
+URL = f"https://api.eia.gov/v2/natural-gas/production/data/?api_key={API_KEY}&frequency=weekly&sort[0][column]=period&sort[0][direction]=desc&length=1"
 
 def fetch_us_production():
-    resp = requests.get(URL)
-    resp.raise_for_status()
-    data = resp.json()
+    r = requests.get(URL)
+    r.raise_for_status()
+    data = r.json()
 
-    # Die letzte verfügbare Periode
-    latest = data["response"]["data"][0]
-    value = latest["value"]
-    date = latest["period"]
+    latest = data.get("response", {}).get("data", [{}])[0]
+    value = latest.get("value")
+    if value is None:
+        raise ValueError("US Production Wert nicht gefunden")
 
-    return value, date
+    os.environ["US_PRODUCTION"] = str(value)
+    with open(os.environ["GITHUB_ENV"], "a") as f:
+        f.write(f"US_PRODUCTION={value}\n")
 
 if __name__ == "__main__":
-    value, date = fetch_us_production()
-    print(f"US_PRODUCTION={value}")
-    # Optional: direkt ins GitHub Environment schreiben
-    with open(os.environ.get("GITHUB_ENV", ".env"), "a") as f:
-        f.write(f"US_PRODUCTION={value}\n")
+    fetch_us_production()
