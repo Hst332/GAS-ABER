@@ -1,32 +1,33 @@
-import os
+import csv
 import requests
+from datetime import datetime
 
-def fetch_eia_storage():
-    api_key = os.environ.get("EIA_API_KEY")
-    if not api_key:
-        raise ValueError("EIA_API_KEY environment variable is missing")
+CSV_URL = "https://ir.eia.gov/ngs/wngsr.csv"
 
-    url = f"https://api.eia.gov/v2/seriesid/NG.WKST.W?api_key={api_key}"
-    
-    r = requests.get(url)
-    if r.status_code != 200:
-        print("DEBUG_STATUS:", r.status_code)
-        print("DEBUG_RAW_RESPONSE:", r.text)
-        return "ERROR", None
+def fetch_storage():
+    r = requests.get(CSV_URL)
+    r.raise_for_status()
 
-    data = r.json()
-    try:
-        latest_point = data['response']['data'][0]
-        value = latest_point['value']
-        date = latest_point['period']
-        return value, date
-    except Exception as e:
-        print("ERROR parsing response:", e)
-        return "ERROR", None
+    lines = r.text.splitlines()
+    reader = csv.DictReader(lines)
+
+    # Erste Zeile = aktuellster Storage-Report
+    latest = next(reader)
+
+    # TOTAL WORKING GAS (in Bcf)
+    total_gas = latest["Total Working Gas"]
+
+    # Datum sauber formatieren
+    date = latest["Week Ending"]
+    date = datetime.strptime(date, "%m/%d/%Y").strftime("%Y-%m-%d")
+
+    return float(total_gas), date
+
 
 if __name__ == "__main__":
-    value, date = fetch_eia_storage()
-    if value == "ERROR":
+    try:
+        value, date = fetch_storage()
+        print(value)  # Nur den Wert, damit GH-Actions ihn sauber übernehmen können
+    except Exception as e:
         print("ERROR")
-    else:
-        print(value)
+        raise e
