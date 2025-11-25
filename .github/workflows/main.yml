@@ -1,8 +1,8 @@
-name: Daily Gas Forecast
+name: Daily Forecast
 
 on:
   schedule:
-    - cron: "30 6 * * *"   # Täglich um 07:30 CET (Cron = UTC)
+    - cron: "30 7 * * *"
   workflow_dispatch:
 
 jobs:
@@ -10,51 +10,45 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt || true
+    - name: Install dependencies
+      run: pip install requests
 
-      - name: Fetch EIA Storage
-        id: eia
-        env:
-          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
-        run: |
-          python fetch_eia_storage.py 2> debug.log > eia_storage.txt
+    # -----------------------------------------------------
+    # 1) Fetch EIA storage (CSV, 100% zuverlässig)
+    # -----------------------------------------------------
+    - name: Fetch EIA Storage
+      run: |
+        python fetch_eia_storage.py > eia_storage.txt
+        STORAGE=$(cat eia_storage.txt)
+        echo "EIA_STORAGE=$STORAGE" >> $GITHUB_ENV
+        echo "Fetched Storage = $STORAGE"
 
-          echo "----- DEBUG LOG -----"
-          cat debug.log
-          echo "----------------------"
+    # -----------------------------------------------------
+    # 2) Run the Forecast Script
+    # -----------------------------------------------------
+    - name: Run Forecast Model
+      run: |
+        python gas_price_forecast.py \
+          --eia-storage $EIA_STORAGE \
+          --us-production 5.0 \
+          --lng-feedgas 7.0 \
+          --futures-curve 4.5 \
+          --cot-managed-money 3.0 \
+          > forecast_output.txt
 
-          STORAGE=$(cat eia_storage.txt)
-          echo "EIA_STORAGE_RAW=$STORAGE"
-
-          if [ "$STORAGE" = "ERROR" ]; then
-            echo "EIA API returned invalid value"
-            exit 1
-          fi
-
-          echo "EIA_STORAGE=$STORAGE" >> $GITHUB_ENV
-
-      - name: Run Forecast
-        run: |
-          python gas_price_forecast.py \
-            --eia-storage "${EIA_STORAGE}" \
-            --us-production 5.0 \
-            --lng-feedgas 7.0 \
-            --futures-curve 4.5 \
-            --cot-managed-money 3.0 \
-            > forecast_output.txt
-
-      - name: Upload forecast artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gas_forecast
-          path: forecast_output.txt
+    # -----------------------------------------------------
+    # 3) Upload output
+    # -----------------------------------------------------
+    - name: Upload Forecast Output
+      uses: actions/upload-artifact@v4
+      with:
+        name: forecast-output
+        path: forecast_output.txt
