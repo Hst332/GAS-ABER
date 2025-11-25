@@ -1,54 +1,52 @@
-name: Daily Forecast
+name: Gas Price Forecast
 
 on:
-  schedule:
-    - cron: "30 7 * * *"
   workflow_dispatch:
+    inputs:
+      eia_api_key:
+        description: 'EIA API Key'
+        required: true
 
 jobs:
-  run-forecast:
-    runs-on: ubuntu-latest
+  forecast:
+    runs-on: ubuntu-24.04
+
+    env:
+      EIA_API_KEY: ${{ github.event.inputs.eia_api_key }}
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      # Repository auschecken
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      # Python einrichten
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.10
 
-    - name: Install dependencies
-      run: pip install requests
+      # Dependencies installieren
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    # -----------------------------------------------------
-    # 1) Fetch EIA storage (CSV, 100% zuverlässig)
-    # -----------------------------------------------------
-    - name: Fetch EIA Storage
-      run: |
-        python fetch_eia_storage.py > eia_storage.txt
-        STORAGE=$(cat eia_storage.txt)
-        echo "EIA_STORAGE=$STORAGE" >> $GITHUB_ENV
-        echo "Fetched Storage = $STORAGE"
+      # EIA Storage abrufen
+      - name: Fetch EIA Storage
+        run: |
+          python fetch_eia_storage.py
 
-    # -----------------------------------------------------
-    # 2) Run the Forecast Script
-    # -----------------------------------------------------
-    - name: Run Forecast Model
-      run: |
-        python gas_price_forecast.py \
-          --eia-storage $EIA_STORAGE \
-          --us-production 5.0 \
-          --lng-feedgas 7.0 \
-          --futures-curve 4.5 \
-          --cot-managed-money 3.0 \
-          > forecast_output.txt
+      # US Production abrufen
+      - name: Fetch US Production
+        run: |
+          python fetch_us_production.py
 
-    # -----------------------------------------------------
-    # 3) Upload output
-    # -----------------------------------------------------
-    - name: Upload Forecast Output
-      uses: actions/upload-artifact@v4
-      with:
-        name: forecast-output
-        path: forecast_output.txt
+      # Forecast ausführen
+      - name: Run Gas Price Forecast
+        run: |
+          python gas_price_forecast.py \
+            --eia-storage "$EIA_STORAGE" \
+            --us-production "$US_PRODUCTION" \
+            --lng-feedgas "YOUR_LNG_FEEDGAS_VALUE" \
+            --futures-curve "YOUR_FUTURES_CURVE_VALUE" \
+            --cot-managed-money "YOUR_COT_MANAGED_MONEY_VALUE"
