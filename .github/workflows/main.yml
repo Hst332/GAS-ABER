@@ -1,16 +1,16 @@
 name: Gas Price Forecast
 
 on:
-  workflow_dispatch:  # Manuelles Ausführen möglich
+  workflow_dispatch:
   schedule:
-    - cron: '0 12 * * 1-5'  # Mo-Fr um 12:00 UTC (optional)
-
-env:
-  EIA_API_KEY: ${{ secrets.EIA_API_KEY }}  # Dein API Key aus GitHub Secrets
+    - cron: "0 14 * * 1-5"  # Montag-Freitag, 14:00 UTC
 
 jobs:
-  run-forecast:
+  forecast:
     runs-on: ubuntu-24.04
+
+    env:
+      EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
 
     steps:
       - name: Checkout repository
@@ -22,52 +22,29 @@ jobs:
           python-version: 3.10
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Fetch EIA Storage Data
+      - name: Fetch EIA Storage
         id: eia_storage
         run: |
-          python fetch_eia_storage.py > eia_storage.txt
-          STORAGE=$(cat eia_storage.txt)
-          if [ "$STORAGE" = "ERROR" ]; then
-            echo "EIA API returned invalid value"
-            exit 1
-          fi
+          STORAGE=$(python fetch_eia_storage.py)
           echo "EIA_STORAGE=$STORAGE" >> $GITHUB_ENV
+          echo "EIA Storage: $STORAGE"
 
       - name: Fetch US Production
         id: us_production
         run: |
-          python fetch_us_production.py > us_production.txt
-          US_PROD=$(cat us_production.txt)
+          US_PROD=$(python fetch_us_production.py)
           echo "US_PRODUCTION=$US_PROD" >> $GITHUB_ENV
-
-      - name: Fetch LNG Feedgas
-        id: lng_feedgas
-        run: |
-          python fetch_lng_feedgas.py > lng_feedgas.txt
-          LNG=$(cat lng_feedgas.txt)
-          echo "LNG_FEEDGAS=$LNG" >> $GITHUB_ENV
-
-      - name: Fetch Futures Curve
-        id: futures_curve
-        run: |
-          python fetch_futures_curve.py > futures_curve.txt
-          FUTURES=$(cat futures_curve.txt)
-          echo "FUTURES_CURVE=$FUTURES" >> $GITHUB_ENV
-
-      - name: Fetch COT Managed Money
-        id: cot_mm
-        run: |
-          python fetch_cot_managed_money.py > cot_mm.txt
-          COT_MM=$(cat cot_mm.txt)
-          echo "COT_MANAGED_MONEY=$COT_MM" >> $GITHUB_ENV
+          echo "US Production: $US_PROD"
 
       - name: Run Gas Price Forecast
         run: |
           python gas_price_forecast.py \
-            --eia-storage "$EIA_STORAGE" \
-            --us-production "$US_PRODUCTION" \
-            --lng-feedgas "$LNG_FEEDGAS" \
-            --futures-curve "$FUTURES_CURVE" \
-            --cot-managed-money "$COT_MANAGED_MONEY"
+            --eia-storage $EIA_STORAGE \
+            --us-production $US_PRODUCTION \
+            --lng-feedgas 0 \
+            --futures-curve 0 \
+            --cot-managed-money 0
