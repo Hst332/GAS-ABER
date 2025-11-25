@@ -7,19 +7,23 @@ def fetch_storage():
     r = requests.get(CSV_URL)
     r.raise_for_status()
 
+    # CSV einlesen
     lines = r.text.splitlines()
-    reader = csv.DictReader(lines)
+    reader = csv.reader(lines)
 
-    # Wir suchen die Zeile "Total Lower 48" → das ist der landesweite Gesamtwert
+    # bis zur Zeile mit Region=="Total" suchen
     for row in reader:
-        if row.get("Region") == "Total Lower 48":
-            value = row.get("Current_Storage")
-            if value is None or value == "":
-                raise ValueError("Spalte Current_Storage nicht gefunden oder leer")
-            print(value)   # WICHTIG: Nur Zahl ausgeben
-            return
+        if len(row) > 1 and row[0].strip() == "Total":
+            # aktueller Wert steht in Spalte 1: Beispiel: "3,946"
+            raw_value = row[1].replace(",", "")
+            return float(raw_value)
 
-    raise ValueError("Region 'Total Lower 48' nicht gefunden")
+    raise ValueError("Total row not found")
 
 if __name__ == "__main__":
-    fetch_storage()
+    try:
+        value = fetch_storage()
+        print(value)
+    except Exception as e:
+        print("ERROR")
+        print(str(e))
