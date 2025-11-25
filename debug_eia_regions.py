@@ -13,4 +13,4 @@ regions = set(row.get("Region") for row in reader)
 
 print("Gefundene Regionsnamen:")
 for reg in regions:
-    print(reg)
+    print(f"- {reg}")
