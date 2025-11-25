@@ -10,121 +10,25 @@ jobs:
   forecast:
     runs-on: ubuntu-24.04
 
-    env:
-      EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
-
     steps:
+
       # Repository auschecken
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Python 3.10 installieren (als string -> verhindert YAML float/3.1 problem)
+      # Python 3.10 installieren
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      # Sanity: welche Python-Version ist jetzt aktiv?
-      - name: Show python version (sanity check)
-        run: |
-          echo "=== Python info ==="
-          python --version
-          which python
-          echo "==================="
-
-      # Abhängigkeiten installieren (falls vorhanden)
+      # Abhängigkeiten installieren
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            echo "requirements.txt not found — skipping pip install"
-          fi
+          pip install -r requirements.txt
 
-      # EIA Storage-Daten abrufen (fetch_eia_storage.py muss NUR eine Zahl ausgeben)
-      - name: Fetch EIA Storage
+      # DEBUG: Region Namen der EIA CSV anzeigen
+      - name: DEBUG EIA Regions
         run: |
-          set -euo pipefail
-          echo "[INFO] Fetching EIA storage (fetch_eia_storage.py)"
-          python fetch_eia_storage.py > eia_storage.txt 2> debug_eia.log || (echo "EIA fetch failed — debug:" && cat debug_eia.log && exit 1)
-          echo "----- DEBUG LOG -----"
-          cat debug_eia.log || true
-          echo "----------------------"
-          STORAGE=$(cat eia_storage.txt || echo "ERROR")
-          echo "EIA_STORAGE_RAW=$STORAGE"
-          if [ -z "$STORAGE" ] || [ "$STORAGE" = "ERROR" ]; then
-            echo "EIA API returned invalid value"
-            exit 1
-          fi
-          # set env var for next steps
-          echo "EIA_STORAGE=$STORAGE" >> $GITHUB_ENV
-          echo "[INFO] EIA_STORAGE set to $STORAGE"
-
-      # US Production automatisch abrufen (fetch_us_production.py muss NUR eine Zahl ausgeben)
-      - name: Fetch US Production
-        run: |
-          set -euo pipefail
-          echo "[INFO] Fetching US production (fetch_us_production.py)"
-          python fetch_us_production.py > us_production.txt 2> debug_prod.log || (echo "US production fetch failed — debug:" && cat debug_prod.log && exit 1)
-          cat debug_prod.log || true
-          US_PROD=$(cat us_production.txt || echo "ERROR")
-          if [ -z "$US_PROD" ] || [ "$US_PROD" = "ERROR" ]; then
-            echo "US production fetch returned invalid value"
-            exit 1
-          fi
-          echo "US_PRODUCTION=$US_PROD" >> $GITHUB_ENV
-          echo "[INFO] US_PRODUCTION set to $US_PROD"
-
-      # (Optional) Weitere fetch-Schritte: LNG, Futures, COT — nur wenn vorhanden
-      - name: Fetch LNG Feedgas (optional)
-        if: ${{ always() }}
-        run: |
-          if [ -f fetch_lng_feedgas.py ]; then
-            python fetch_lng_feedgas.py > lng_feedgas.txt 2> debug_lng.log || (echo "LNG fetch failed" && cat debug_lng.log && exit 1)
-            LNG=$(cat lng_feedgas.txt)
-            echo "LNG_FEEDGAS=$LNG" >> $GITHUB_ENV
-            echo "[INFO] LNG_FEEDGAS set to $LNG"
-          else
-            echo "[INFO] fetch_lng_feedgas.py not found, defaulting to 0"
-            echo "LNG_FEEDGAS=0" >> $GITHUB_ENV
-          fi
-
-      - name: Fetch Futures Curve (optional)
-        if: ${{ always() }}
-        run: |
-          if [ -f fetch_futures_curve.py ]; then
-            python fetch_futures_curve.py > futures_curve.txt 2> debug_fut.log || (echo "Futures fetch failed" && cat debug_fut.log && exit 1)
-            FUTURES=$(cat futures_curve.txt)
-            echo "FUTURES_CURVE=$FUTURES" >> $GITHUB_ENV
-            echo "[INFO] FUTURES_CURVE set to $FUTURES"
-          else
-            echo "[INFO] fetch_futures_curve.py not found, defaulting to 0"
-            echo "FUTURES_CURVE=0" >> $GITHUB_ENV
-          fi
-
-      - name: Fetch COT Managed Money (optional)
-        if: ${{ always() }}
-        run: |
-          if [ -f fetch_cot_managed_money.py ]; then
-            python fetch_cot_managed_money.py > cot_mm.txt 2> debug_cot.log || (echo "COT fetch failed" && cat debug_cot.log && exit 1)
-            COTMM=$(cat cot_mm.txt)
-            echo "COT_MANAGED_MONEY=$COTMM" >> $GITHUB_ENV
-            echo "[INFO] COT_MANAGED_MONEY set to $COTMM"
-          else
-            echo "[INFO] fetch_cot_managed_money.py not found, defaulting to 0"
-            echo "COT_MANAGED_MONEY=0" >> $GITHUB_ENV
-          fi
-
-      # Gaspreis-Forecast Skript ausführen (nutzt die Env-Vars)
-      - name: Run Gas Price Forecast
-        run: |
-          set -euo pipefail
-          echo "[INFO] Running gas_price_forecast.py with collected inputs"
-          python gas_price_forecast.py \
-            --eia-storage "$EIA_STORAGE" \
-            --us-production "$US_PRODUCTION" \
-            --lng-feedgas "${LNG_FEEDGAS:-0}" \
-            --futures-curve "${FUTURES_CURVE:-0}" \
-            --cot-managed-money "${COT_MANAGED_MONEY:-0}"
-
+          python debug_eia_regions.py
