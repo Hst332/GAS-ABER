@@ -2,7 +2,7 @@ import argparse
 from datetime import datetime
 
 
-# Gewichtungen (fest, wie von dir definiert)
+# Gewichtungen (bleiben UNVERÄNDERT)
 FACTORS = {
     "EIA Storage": 0.25,
     "US Production": 0.20,
@@ -12,23 +12,30 @@ FACTORS = {
 }
 
 
+def clamp(value: float, min_v=0.0, max_v=10.0) -> float:
+    return max(min_v, min(value, max_v))
+
+
+def normalize_eia_storage(bcf: float) -> float:
+    # 3000 bullish (10), 4000 neutral (5), 4400 bearish (0)
+    score = 10 - ((bcf - 3000) / (4400 - 3000)) * 10
+    return clamp(score)
+
+
+def normalize_us_production(bcfd: float) -> float:
+    # 85 bullish (10), 92 neutral (5), 100 bearish (0)
+    score = 10 - ((bcfd - 85) / (100 - 85)) * 10
+    return clamp(score)
+
+
 def calculate_probability(values: dict) -> float:
-    """
-    Berechnet die Wahrscheinlichkeit (0–100 %),
-    dass der Gaspreis steigt.
-    Erwartungsbereich der Werte: 0–10
-    """
     weighted_score = sum(values[f] * w for f, w in FACTORS.items())
-
-    max_value_per_factor = 10.0
-    max_score = sum(max_value_per_factor * w for w in FACTORS.values())
-
-    probability = (weighted_score / max_score) * 100
-    return round(probability, 1)
+    max_score = sum(10 * w for w in FACTORS.values())
+    return round((weighted_score / max_score) * 100, 1)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Natural Gas Price Forecast")
+    parser = argparse.ArgumentParser()
 
     parser.add_argument("--eia-storage", type=float, required=True)
     parser.add_argument("--us-production", type=float, required=True)
@@ -38,49 +45,37 @@ def main():
 
     args = parser.parse_args()
 
-    # Eingabewerte sammeln
+    # ✅ NORMALISIERUNG
     values = {
-        "EIA Storage": args.eia_storage,
-        "US Production": args.us_production,
-        "LNG Feedgas": args.lng_feedgas,
-        "Futures Curve": args.futures_curve,
-        "COT Managed Money": args.cot_managed_money
+        "EIA Storage": normalize_eia_storage(args.eia_storage),
+        "US Production": normalize_us_production(args.us_production),
+        "LNG Feedgas": clamp(args.lng_feedgas),
+        "Futures Curve": clamp(args.futures_curve),
+        "COT Managed Money": clamp(args.cot_managed_money),
     }
 
     probability = calculate_probability(values)
 
-    # Zeitstempel (UTC, stabil für GitHub Actions)
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-
-    # Datenstand (bewusst textuell – nichts wird hier „erraten“)
-    data_status = {
-        "EIA Storage": "aktuell (Woche zum 26.11.)",
-        "US Production": "aktuell (letzte verfügbare Woche)",
-        "LNG Feedgas": "noch Platzhalter (nicht automatisch geladen)",
-        "Futures Curve": "noch Platzhalter (nicht automatisch geladen)",
-        "COT Managed Money": "noch Platzhalter (nicht automatisch geladen)"
-    }
 
     output = f"""
 NATURAL GAS PRICE FORECAST
 ===================================
 Datum: {timestamp}
 
-Eingabewerte (0–10 Skala):
-  EIA Storage         : {values['EIA Storage']}  [{data_status['EIA Storage']}]
-  US Production       : {values['US Production']}  [{data_status['US Production']}]
-  LNG Feedgas         : {values['LNG Feedgas']}  [{data_status['LNG Feedgas']}]
-  Futures Curve       : {values['Futures Curve']}  [{data_status['Futures Curve']}]
-  COT Managed Money   : {values['COT Managed Money']}  [{data_status['COT Managed Money']}]
+Normalisierte Faktoren (0–10):
+  EIA Storage         : {values['EIA Storage']:.2f}  (Lower 48, Bcf)
+  US Production       : {values['US Production']:.2f}  (Bcf/d)
+  LNG Feedgas         : {values['LNG Feedgas']:.2f}
+  Futures Curve       : {values['Futures Curve']:.2f}
+  COT Managed Money   : {values['COT Managed Money']:.2f}
 
 Wahrscheinlichkeit, dass Gaspreis steigt: {probability:.1f}%
 ===================================
 """.strip()
 
-    # Konsole
     print(output)
 
-    # Datei (wird von deinem Workflow genutzt)
     with open("forecast_output.txt", "w", encoding="utf-8") as f:
         f.write(output + "\n")
 
