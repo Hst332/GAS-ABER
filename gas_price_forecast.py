@@ -23,6 +23,16 @@ def calculate_forecast(eia_storage, us_production, lng_feedgas, futures_curve, c
     max_score = sum(max_possible * w for w in factors.values())
     prob_rise = (weighted_score / max_score) * 100
 
+# --- SAFETY CLAMP ---
+probability = float(probability)
+
+# Falls Modell mit 0–1 arbeitet
+if probability <= 1.0:
+    probability *= 100.0
+
+# Hard Clamp (absolute Sicherheit)
+probability = max(0.0, min(probability, 100.0))
+
     return prob_rise
 
 
