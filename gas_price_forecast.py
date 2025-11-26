@@ -1,51 +1,46 @@
 import argparse
 
-def calculate_forecast(eia_storage, us_production, lng_feedgas, futures_curve, cot_managed_money):
-    factors = {
-        "EIA Storage": 0.25,
-        "US Production": 0.20,
-        "LNG Feedgas": 0.20,
-        "Futures Curve": 0.20,
-        "COT Managed Money": 0.15
-    }
+def calculate_probability(
+    eia_storage,
+    us_production,
+    lng_feedgas,
+    futures_curve,
+    cot_managed_money
+):
+    # --- einfache, stabile Heuristik ---
+    score = (
+        -0.3 * eia_storage +
+         0.4 * us_production +
+         0.3 * lng_feedgas +
+         0.2 * futures_curve +
+         0.1 * cot_managed_money
+    )
 
-    values = {
-        "EIA Storage": eia_storage,
-        "US Production": us_production,
-        "LNG Feedgas": lng_feedgas,
-        "Futures Curve": futures_curve,
-        "COT Managed Money": cot_managed_money
-    }
+    # Lineare Projektion
+    probability = score
 
-    weighted_score = sum(values[f] * factors[f] for f in factors)
+    # --- SAFETY NORMALIZATION ---
+    probability = float(probability)
 
-    max_possible = 10  # assumed scale of 0–10
-    max_score = sum(max_possible * w for w in factors.values())
-    prob_rise = (weighted_score / max_score) * 100
+    if probability <= 1.0:
+        probability *= 100.0
 
-# --- SAFETY CLAMP ---
-probability = float(probability)
+    probability = max(0.0, min(probability, 100.0))
 
-# Falls Modell mit 0–1 arbeitet
-if probability <= 1.0:
-    probability *= 100.0
-
-# Hard Clamp (absolute Sicherheit)
-probability = max(0.0, min(probability, 100.0))
-
-    return prob_rise
+    return probability
 
 
-def main():
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--eia-storage", type=float, required=True)
     parser.add_argument("--us-production", type=float, required=True)
     parser.add_argument("--lng-feedgas", type=float, required=True)
     parser.add_argument("--futures-curve", type=float, required=True)
     parser.add_argument("--cot-managed-money", type=float, required=True)
+
     args = parser.parse_args()
 
-    prob = calculate_forecast(
+    prob_rise = calculate_probability(
         args.eia_storage,
         args.us_production,
         args.lng_feedgas,
@@ -53,8 +48,11 @@ def main():
         args.cot_managed_money
     )
 
-    print(f"Wahrscheinlichkeit, dass Gaspreis steigt: {prob:.1f}%")
+    output_line = f"Wahrscheinlichkeit, dass Gaspreis steigt: {prob_rise:.1f}%"
 
+    # ✅ 1. In Konsole ausgeben
+    print(output_line)
 
-if __name__ == "__main__":
-    main()
+    # ✅ 2. Zusätzlich als Datei speichern
+    with open("forecast_output.txt", "w", encoding="utf-8") as f:
+        f.write(output_line + "\n")
