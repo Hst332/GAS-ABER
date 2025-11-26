@@ -11,24 +11,38 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-
-      # Repository auschecken
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Python 3.10 installieren
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: 3.12
 
-      # Abhängigkeiten installieren
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # DEBUG: Region Namen der EIA CSV anzeigen
-      - name: DEBUG EIA Regions
+      - name: Fetch EIA Storage
+        id: eia_storage
         run: |
-          python debug_eia_regions.py
+          STORAGE=$(python fetch_eia_storage.py)
+          echo "EIA_STORAGE=$STORAGE" >> $GITHUB_ENV
+          echo "EIA_STORAGE_RAW=$STORAGE"
+
+      - name: Fetch US Production
+        id: us_prod
+        run: |
+          US_PROD=$(python fetch_us_production.py)
+          echo "US_PRODUCTION=$US_PROD" >> $GITHUB_ENV
+          echo "US_PRODUCTION_RAW=$US_PROD"
+
+      - name: Run Gas Price Forecast
+        run: |
+          python gas_price_forecast.py \
+            --eia-storage $EIA_STORAGE \
+            --us-production $US_PRODUCTION \
+            --lng-feedgas 0 \
+            --futures-curve 0 \
+            --cot-managed-money 0
