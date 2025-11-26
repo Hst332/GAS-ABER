@@ -74,11 +74,8 @@ Wahrscheinlichkeit, dass Gaspreis steigt: {probability:.1f}%
 ===================================
 """.strip()
 
-    print(output)
+  with open("forecast_output.txt", "w", encoding="utf-8") as f:
+    f.write(output_text)
 
-    with open("forecast_output.txt", "w", encoding="utf-8") as f:
-        f.write(output + "\n")
+print(output_text)
 
-
-if __name__ == "__main__":
-    main()
