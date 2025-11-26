@@ -1,14 +1,20 @@
 name: Run Gas Price Forecast
 
+# Trigger: push (main), manual dispatch, and daily schedule at 07:30 (UTC)
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
+  schedule:
+    # täglich 07:30 UTC — wenn du Europe/Vienna (CET/CEST) willst, passe extern an.
+    - cron: '30 7 * * *'
 
 jobs:
   forecast:
     runs-on: ubuntu-24.04
+    env:
+      # Keine API-Keys nötig für CSV-basierte EIA-Fetch; falls du welche nutzen willst, setze sie in Repo secrets.
+      EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
 
     steps:
       - name: Checkout repository
@@ -17,32 +23,57 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.12
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Fetch EIA Storage
-        id: eia_storage
+      - name: Fetch EIA Storage (CSV)
+        id: eia
         run: |
-          STORAGE=$(python fetch_eia_storage.py)
-          echo "EIA_STORAGE=$STORAGE" >> $GITHUB_ENV
-          echo "EIA_STORAGE_RAW=$STORAGE"
+          set -euo pipefail
+          echo "[INFO] Fetching EIA storage (CSV) ..."
+          # fetch_eia_storage.py gibt die Zahl (z.B. 3946) auf stdout zurück
+          STORAGE_RAW="$(python fetch_eia_storage.py)"
+          echo "EIA_STORAGE_RAW=$STORAGE_RAW"
+          # export to GitHub env for later steps
+          echo "EIA_STORAGE=$STORAGE_RAW" >> $GITHUB_ENV
 
       - name: Fetch US Production
-        id: us_prod
+        id: usprod
         run: |
-          US_PROD=$(python fetch_us_production.py)
-          echo "US_PRODUCTION=$US_PROD" >> $GITHUB_ENV
+          set -euo pipefail
+          echo "[INFO] Fetching US production (placeholder)..."
+          US_PROD="$(python fetch_us_production.py)"
           echo "US_PRODUCTION_RAW=$US_PROD"
+          echo "US_PRODUCTION=$US_PROD" >> $GITHUB_ENV
 
-      - name: Run Gas Price Forecast
+      - name: Run Gas Price Forecast (write to file)
+        id: forecast
         run: |
+          set -euo pipefail
+          echo "[INFO] Running gas_price_forecast.py and saving output to forecast_output.txt ..."
+          # Run with arguments taken from env (populated above)
           python gas_price_forecast.py \
-            --eia-storage $EIA_STORAGE \
-            --us-production $US_PRODUCTION \
+            --eia-storage "$EIA_STORAGE" \
+            --us-production "$US_PRODUCTION" \
             --lng-feedgas 0 \
             --futures-curve 0 \
-            --cot-managed-money 0
+            --cot-managed-money 0 \
+            > forecast_output.txt 2>&1 || true
+          echo "[INFO] Forecast script finished; tail of output:"
+          tail -n +1 forecast_output.txt | sed -n '1,200p'
+
+      - name: Upload forecast output artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: forecast_output
+          path: forecast_output.txt
+
+      - name: Show environment values (sanity)
+        run: |
+          echo "EIA_STORAGE = $EIA_STORAGE"
+          echo "US_PRODUCTION = $US_PRODUCTION"
