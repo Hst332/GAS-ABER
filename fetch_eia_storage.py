@@ -1,29 +1,37 @@
+# fetch_eia_storage.py
 import csv
 import requests
 
 CSV_URL = "https://ir.eia.gov/ngs/wngsr.csv"
 
 def fetch_storage():
-    r = requests.get(CSV_URL)
-    r.raise_for_status()
+    try:
+        r = requests.get(CSV_URL)
+        r.raise_for_status()
+        lines = r.text.splitlines()
+        reader = csv.reader(lines)
 
-    # CSV einlesen
-    lines = r.text.splitlines()
-    reader = csv.reader(lines)
+        # Überspringe die ersten paar Header-Zeilen bis zu den Spaltennamen
+        headers = None
+        for line in reader:
+            if line and line[0] == "Region":
+                headers = line
+                break
 
-    # bis zur Zeile mit Region=="Total" suchen
-    for row in reader:
-        if len(row) > 1 and row[0].strip() == "Total":
-            # aktueller Wert steht in Spalte 1: Beispiel: "3,946"
-            raw_value = row[1].replace(",", "")
-            return float(raw_value)
+        if not headers:
+            raise ValueError("Regionen-Header nicht gefunden")
 
-    raise ValueError("Total row not found")
+        # Suche nach der "Total"-Zeile
+        for row in reader:
+            if row and row[0].strip() == "Total":
+                # Stocks in billion (Bcf) ist Spalte 1
+                value = row[1].replace(',', '')
+                return float(value)
+        raise ValueError("Region 'Total Lower 48' nicht gefunden")
+    except Exception as e:
+        print("EIA fetch failed — debug:")
+        raise e
 
 if __name__ == "__main__":
-    try:
-        value = fetch_storage()
-        print(value)
-    except Exception as e:
-        print("ERROR")
-        print(str(e))
+    total = fetch_storage()
+    print(total)
