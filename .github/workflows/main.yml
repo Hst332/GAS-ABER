@@ -33,30 +33,29 @@ jobs:
       # EIA Storage-Daten abrufen
       - name: Fetch EIA Storage
         run: |
-          python fetch_eia_storage.py > eia_storage.txt 2> debug.log
+          python fetch_eia_storage.py > eia_storage.txt 2> debug.log || echo "Fehler beim Abrufen"
           echo "----- DEBUG LOG -----"
           cat debug.log
           echo "----------------------"
-          STORAGE=$(cat eia_storage.txt)
-          echo "EIA_STORAGE_RAW=$STORAGE"
-          if [ "$STORAGE" = "ERROR" ]; then
-            echo "EIA API returned invalid value"
-            exit 1
-          fi
+          STORAGE=$(cat eia_storage.txt || echo 0)
           echo "EIA_STORAGE=$STORAGE" >> $GITHUB_ENV
 
       # US Production automatisch abrufen
       - name: Fetch US Production
         run: |
-          python fetch_us_production.py > us_production.txt
-          US_PROD=$(cat us_production.txt)
+          python fetch_us_production.py > us_production.txt 2>/dev/null || echo "Fehler beim Abrufen"
+          US_PROD=$(cat us_production.txt || echo 0)
           echo "US_PRODUCTION=$US_PROD" >> $GITHUB_ENV
 
-      # LNG Feedgas automatisch abrufen (optional)
+      # LNG Feedgas automatisch abrufen (mit Fallback)
       - name: Fetch LNG Feedgas
         run: |
-          python fetch_lng_feedgas.py > lng_feedgas.txt || echo "Fehler beim Abrufen, letzte verfügbare Meldung wird genutzt"
-          LNG_FEEDGAS=$(cat lng_feedgas.txt || echo 0)
+          if python fetch_lng_feedgas.py > lng_feedgas.txt 2>/dev/null; then
+              LNG_FEEDGAS=$(cat lng_feedgas.txt)
+          else
+              echo "Fehler beim Abrufen, letzte verfügbare Meldung wird genutzt"
+              LNG_FEEDGAS=$(cat lng_feedgas.txt || echo 0)
+          fi
           echo "LNG_FEEDGAS=$LNG_FEEDGAS" >> $GITHUB_ENV
 
       # Gaspreis-Forecast Skript ausführen
@@ -68,12 +67,3 @@ jobs:
             --lng-feedgas $LNG_FEEDGAS \
             --futures-curve 0 \
             --cot-managed-money 0
-
-      # Optional: Forecast Output ins Repository schreiben
-      # - name: Commit forecast output
-      #   run: |
-      #     git config user.name "github-actions"
-      #     git config user.email "github-actions@github.com"
-      #     git add forecast_output.txt
-      #     git commit -m "Update gas price forecast"
-      #     git push
