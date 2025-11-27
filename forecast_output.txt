@@ -2,12 +2,12 @@
 ===================================
       NATURAL GAS PRICE FORECAST   
 ===================================
-Datum: 2025-11-27 13:30:40 UTC
+Datum: 2025-11-27 13:40:45 UTC
 
 Eingabewerte (0–10 Skala):
   EIA Storage         : 10.00  [aktuell]
   US Production       : 10.00  [aktuell]
-  LNG Feedgas         : 0.00  [Platzhalter]
+  LNG Feedgas         : 0.00  [aktuell]
   Futures Curve       : 0.00  [Platzhalter]
   COT Managed Money   : 0.00  [Platzhalter]
 
