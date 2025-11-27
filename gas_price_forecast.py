@@ -1,25 +1,12 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import argparse
 from datetime import datetime
 
 
-WEIGHTS = {
-    "eia_storage": 0.25,
-    "us_production": 0.20,
-    "lng_feedgas": 0.20,
-    "futures_curve": 0.20,
-    "cot_managed_money": 0.15,
-}
-
-
-def normalize(value, min_val=0.0, max_val=10.0):
-    """
-    Bringt einen Wert stabil auf 0–10
-    """
-    if value < min_val:
-        return min_val
-    if value > max_val:
-        return max_val
-    return value
+def clamp(value, min_value=0.0, max_value=100.0):
+    return max(min_value, min(max_value, value))
 
 
 def main():
@@ -33,51 +20,84 @@ def main():
 
     args = parser.parse_args()
 
-    # -----------------------------
-    # NORMALISIERUNG (entscheidend!)
-    # -----------------------------
-    eia_score = normalize(args.eia_storage)
-    prod_score = normalize(args.us_production)
-    lng_score = normalize(args.lng_feedgas)
-    curve_score = normalize(args.futures_curve)
-    cot_score = normalize(args.cot_managed_money)
+    # =========================
+    # Eingabewerte
+    # =========================
+    eia = args.eia_storage
+    us_prod = args.us_production
+    lng = args.lng_feedgas
+    futures = args.futures_curve
+    cot = args.cot_managed_money
+
+    # =========================
+    # Status bestimmen
+    # =========================
+    eia_status = "aktuell"
+    us_prod_status = "aktuell"
+
+    if lng > 0:
+        lng_status = "aktuell"
+    else:
+        lng_status = "aktuell (keine neue Meldung)"
+
+    if futures > 0:
+        futures_status = "aktuell"
+    else:
+        futures_status = "Platzhalter"
+
+    if cot > 0:
+        cot_status = "aktuell"
+    else:
+        cot_status = "Platzhalter"
+
+    # =========================
+    # Gewichtung
+    # =========================
+    weights = {
+        "eia": 0.30,
+        "us_prod": 0.25,
+        "lng": 0.20,
+        "futures": 0.15,
+        "cot": 0.10,
+    }
 
     weighted_score = (
-        eia_score * WEIGHTS["eia_storage"]
-        + prod_score * WEIGHTS["us_production"]
-        + lng_score * WEIGHTS["lng_feedgas"]
-        + curve_score * WEIGHTS["futures_curve"]
-        + cot_score * WEIGHTS["cot_managed_money"]
+        eia * weights["eia"] +
+        us_prod * weights["us_prod"] +
+        lng * weights["lng"] +
+        futures * weights["futures"] +
+        cot * weights["cot"]
     )
 
-    probability = weighted_score * 10.0  # 0–100 %
+    probability = clamp(weighted_score * 10.0)
 
-    now_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    now_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    output = (
-        "\n===================================\n"
-        "      NATURAL GAS PRICE FORECAST   \n"
-        "===================================\n"
-        f"Datum: {now_utc} UTC\n\n"
-        "Eingabewerte (0–10 Skala):\n"
-        f"  EIA Storage         : {eia_score:.2f}  [aktuell]\n"
-        f"  US Production       : {prod_score:.2f}  [aktuell]\n"
-        f"  lng_status = "aktuell" if lng > 0 else "aktuell (keine neue EIA-Meldung)"
-            print(f"  LNG Feedgas         : {lng:.2f}  [{lng_status}]")"
-        f"  Futures Curve       : {curve_score:.2f}  [Platzhalter]\n"
-        f"  COT Managed Money   : {cot_score:.2f}  [Platzhalter]\n\n"
-        f"Gewichteter Score: {weighted_score:.2f}\n"
-        f"Wahrscheinlichkeit, dass Gaspreis steigt: {probability:.1f}%\n"
-        "===================================\n"
-    )
+    output = f"""
+===================================
+      NATURAL GAS PRICE FORECAST
+===================================
+Datum: {now_utc}
 
+Eingabewerte (0–10 Skala):
+  EIA Storage         : {eia:.2f}  [{eia_status}]
+  US Production       : {us_prod:.2f}  [{us_prod_status}]
+  LNG Feedgas         : {lng:.2f}  [{lng_status}]
+  Futures Curve       : {futures:.2f}  [{futures_status}]
+  COT Managed Money   : {cot:.2f}  [{cot_status}]
+
+Gewichteter Score: {weighted_score:.2f}
+Wahrscheinlichkeit, dass Gaspreis steigt: {probability:.1f}%
+===================================
+""".strip()
+
+    # =========================
+    # Ausgabe
+    # =========================
     print(output)
 
-    # -----------------------------
-    # DATEI SCHREIBEN (immer!)
-    # -----------------------------
     with open("forecast_output.txt", "w", encoding="utf-8") as f:
-        f.write(output)
+        f.write(output + "\n")
 
 
 if __name__ == "__main__":
