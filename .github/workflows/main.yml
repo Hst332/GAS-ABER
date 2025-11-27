@@ -1,12 +1,9 @@
 name: Run Gas Price Forecast
 
-permissions:
-  contents: write
-
-
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -17,61 +14,52 @@ jobs:
       EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
 
     steps:
+      # Repository auschecken
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Python 3.10 installieren
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: 3.10
 
+      # Abhängigkeiten installieren
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # EIA Storage-Daten abrufen
       - name: Fetch EIA Storage
         run: |
-          python fetch_eia_storage.py > eia_storage.txt
-          echo "EIA_STORAGE=$(cat eia_storage.txt)" >> $GITHUB_ENV
+          python fetch_eia_storage.py > eia_storage.txt 2> debug_eia.txt
+          echo "DEBUG EIA:"
+          cat debug_eia.txt
+          STORAGE=$(cat eia_storage.txt | cut -d' ' -f1)
+          DATE=$(cat eia_storage.txt | cut -d' ' -f2)
+          echo "EIA_STORAGE=$STORAGE" >> $GITHUB_ENV
+          echo "EIA_DATE=$DATE" >> $GITHUB_ENV
 
+      # US Production automatisch abrufen
       - name: Fetch US Production
         run: |
           python fetch_us_production.py > us_production.txt
-          echo "US_PRODUCTION=$(cat us_production.txt)" >> $GITHUB_ENV
+          US_PROD=$(cat us_production.txt | cut -d' ' -f1)
+          DATE=$(cat us_production.txt | cut -d' ' -f2)
+          echo "US_PRODUCTION=$US_PROD" >> $GITHUB_ENV
+          echo "US_PROD_DATE=$DATE" >> $GITHUB_ENV
 
+      # LNG Feedgas automatisch abrufen
+      - name: Fetch LNG Feedgas
+        run: |
+          python fetch_lng_feedgas.py > lng_feedgas.txt || echo "0.0" > lng_feedgas.txt
+          LNG=$(cat lng_feedgas.txt | cut -d' ' -f1)
+          DATE=$(cat lng_feedgas.txt | cut -d' ' -f2)
+          echo "LNG_FEEDGAS=$LNG" >> $GITHUB_ENV
+          echo "LNG_DATE=${DATE:-unbekannt}" >> $GITHUB_ENV
+
+      # Gaspreis-Forecast Skript ausführen
       - name: Run Gas Price Forecast
         run: |
-          python gas_price_forecast.py \
-            --eia-storage "$EIA_STORAGE" \
-            --us-production "$US_PRODUCTION" \
-            --lng-feedgas 0 \
-            --futures-curve 0 \
-            --cot-managed-money 0
-
-      - name: Fetch LNG Feedgas
-        run: |
-          python fetch_lng_feedgas.py > lng_feedgas.txt
-          LNG=$(cat lng_feedgas.txt)
-          echo "LNG_FEEDGAS=$LNG" >> $GITHUB_ENV
-
-      - name: Fetch LNG Feedgas
-        run: |
-          echo "[INFO] Fetching LNG Feedgas"
-          python fetch_lng_feedgas.py > lng_feedgas.txt
-          LNG_FEEDGAS=$(cat lng_feedgas.txt)
-          echo "LNG_FEEDGAS=$LNG_FEEDGAS" >> $GITHUB_ENV
-
-      - name: Commit forecast output
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-
-          git add forecast_output.txt
-
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update gas price forecast"
-            git push
-          fi
+          python gas_price_forecast.py
