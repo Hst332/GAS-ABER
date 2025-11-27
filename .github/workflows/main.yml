@@ -49,6 +49,13 @@ jobs:
             --futures-curve 0 \
             --cot-managed-money 0
 
+      - name: Fetch LNG Feedgas
+        run: |
+          python fetch_lng_feedgas.py > lng_feedgas.txt
+          LNG=$(cat lng_feedgas.txt)
+          echo "LNG_FEEDGAS=$LNG" >> $GITHUB_ENV
+
+
       - name: Commit forecast output
         run: |
           git config user.name "github-actions"
