@@ -62,7 +62,7 @@ def main():
         "Eingabewerte (0–10 Skala):\n"
         f"  EIA Storage         : {eia_score:.2f}  [aktuell]\n"
         f"  US Production       : {prod_score:.2f}  [aktuell]\n"
-        f"  LNG Feedgas         : {lng_score:.2f}  [Platzhalter]\n"
+        f"  LNG Feedgas         : {lng_score:.2f}  [aktuell]\n"
         f"  Futures Curve       : {curve_score:.2f}  [Platzhalter]\n"
         f"  COT Managed Money   : {cot_score:.2f}  [Platzhalter]\n\n"
         f"Gewichteter Score: {weighted_score:.2f}\n"
