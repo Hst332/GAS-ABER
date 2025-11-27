@@ -33,33 +33,47 @@ jobs:
       # EIA Storage-Daten abrufen
       - name: Fetch EIA Storage
         run: |
-          python fetch_eia_storage.py > eia_storage.txt 2> debug_eia.txt
-          echo "DEBUG EIA:"
-          cat debug_eia.txt
-          STORAGE=$(cat eia_storage.txt | cut -d' ' -f1)
-          DATE=$(cat eia_storage.txt | cut -d' ' -f2)
+          python fetch_eia_storage.py > eia_storage.txt 2> debug.log
+          echo "----- DEBUG LOG -----"
+          cat debug.log
+          echo "----------------------"
+          STORAGE=$(cat eia_storage.txt)
+          echo "EIA_STORAGE_RAW=$STORAGE"
+          if [ "$STORAGE" = "ERROR" ]; then
+            echo "EIA API returned invalid value"
+            exit 1
+          fi
           echo "EIA_STORAGE=$STORAGE" >> $GITHUB_ENV
-          echo "EIA_DATE=$DATE" >> $GITHUB_ENV
 
       # US Production automatisch abrufen
       - name: Fetch US Production
         run: |
           python fetch_us_production.py > us_production.txt
-          US_PROD=$(cat us_production.txt | cut -d' ' -f1)
-          DATE=$(cat us_production.txt | cut -d' ' -f2)
+          US_PROD=$(cat us_production.txt)
           echo "US_PRODUCTION=$US_PROD" >> $GITHUB_ENV
-          echo "US_PROD_DATE=$DATE" >> $GITHUB_ENV
 
-      # LNG Feedgas automatisch abrufen
+      # LNG Feedgas automatisch abrufen (optional)
       - name: Fetch LNG Feedgas
         run: |
-          python fetch_lng_feedgas.py > lng_feedgas.txt || echo "0.0" > lng_feedgas.txt
-          LNG=$(cat lng_feedgas.txt | cut -d' ' -f1)
-          DATE=$(cat lng_feedgas.txt | cut -d' ' -f2)
-          echo "LNG_FEEDGAS=$LNG" >> $GITHUB_ENV
-          echo "LNG_DATE=${DATE:-unbekannt}" >> $GITHUB_ENV
+          python fetch_lng_feedgas.py > lng_feedgas.txt || echo "Fehler beim Abrufen, letzte verfügbare Meldung wird genutzt"
+          LNG_FEEDGAS=$(cat lng_feedgas.txt || echo 0)
+          echo "LNG_FEEDGAS=$LNG_FEEDGAS" >> $GITHUB_ENV
 
       # Gaspreis-Forecast Skript ausführen
       - name: Run Gas Price Forecast
         run: |
-          python gas_price_forecast.py
+          python gas_price_forecast.py \
+            --eia-storage $EIA_STORAGE \
+            --us-production $US_PRODUCTION \
+            --lng-feedgas $LNG_FEEDGAS \
+            --futures-curve 0 \
+            --cot-managed-money 0
+
+      # Optional: Forecast Output ins Repository schreiben
+      # - name: Commit forecast output
+      #   run: |
+      #     git config user.name "github-actions"
+      #     git config user.email "github-actions@github.com"
+      #     git add forecast_output.txt
+      #     git commit -m "Update gas price forecast"
+      #     git push
