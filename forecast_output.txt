@@ -2,7 +2,7 @@
 ===================================
       NATURAL GAS PRICE FORECAST   
 ===================================
-Datum: 2025-11-27 12:54:44 UTC
+Datum: 2025-11-27 12:56:04 UTC
 
 Eingabewerte (0–10 Skala):
   EIA Storage         : 10.00  [aktuell]
