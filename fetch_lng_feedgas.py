@@ -1,10 +1,14 @@
 import csv
 import requests
 
-CSV_URL = "https://ir.eia.gov/ngd/ngd.csv"
+
+CSV_URL = "https://ir.eia.gov/ngd/ngd_weekly.csv"
 
 
 def scale_lng_to_score(bcf_per_day: float) -> float:
+    """
+    Realistische Skalierung US LNG Feedgas
+    """
     if bcf_per_day < 10:
         return 3.0
     elif bcf_per_day < 12:
@@ -15,39 +19,38 @@ def scale_lng_to_score(bcf_per_day: float) -> float:
         return 9.0
 
 
-def main():
+def fetch_lng_feedgas():
     r = requests.get(CSV_URL, timeout=30)
     r.raise_for_status()
 
     lines = r.text.splitlines()
-    reader = csv.reader(lines)
-
-    header = next(reader)
-
-    date_idx = header.index("Date")
-    value_idx = header.index("U.S. Natural Gas Pipeline Imports to LNG Export Facilities (Bcf/d)")
-
-    latest_value = None
-    latest_date = None
+    reader = csv.DictReader(lines)
 
     for row in reader:
         try:
-            value = float(row[value_idx])
-            date = row[date_idx]
-            latest_value = value
-            latest_date = date
-            break
-        except (ValueError, IndexError):
+            value = float(
+                row["U.S. Natural Gas Pipeline Imports to LNG Export Facilities (Bcf/d)"]
+            )
+            date = row["Date"]
+            return value, date
+        except (KeyError, ValueError):
             continue
 
-    if latest_value is None:
-        raise RuntimeError("Keine LNG Feedgas Daten gefunden")
+    raise RuntimeError("Keine gültigen LNG Feedgas Daten gefunden")
 
-    score = scale_lng_to_score(latest_value)
 
-    print(f"{score:.2f}")  # nur Score für Workflow
-    print(f"LNG_FEEDGAS_RAW={latest_value}", file=open("lng_debug.txt", "w"))
-    print(f"LNG_FEEDGAS_DATE={latest_date}", file=open("lng_debug.txt", "a"))
+def main():
+    value, date = fetch_lng_feedgas()
+    score = scale_lng_to_score(value)
+
+    # NUR Score für Forecast
+    print(f"{score:.2f}")
+
+    # Debug-Datei (optional, zerstört nichts)
+    with open("lng_feedgas_debug.txt", "w", encoding="utf-8") as f:
+        f.write(f"Datum: {date}\n")
+        f.write(f"LNG Feedgas (Bcf/d): {value}\n")
+        f.write(f"Score (0–10): {score}\n")
 
 
 if __name__ == "__main__":
