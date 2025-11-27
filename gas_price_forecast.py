@@ -1,45 +1,56 @@
 import os
 from datetime import datetime
 
+FORECAST_OUTPUT = "forecast_output.txt"
+
 def load_input(file_path):
-    with open(file_path, "r") as f:
-        return float(f.read().strip())
+    if os.path.exists(file_path):
+        with open(file_path, "r") as f:
+            return float(f.read().strip())
+    else:
+        return 0.0
 
 def run_forecast(eia_storage, eia_date,
                  us_prod, us_date,
                  lng_feedgas, lng_date,
                  futures_curve, cot_money):
 
-    # Status für Anzeige
-    storage_status = f"[Stand: {eia_date}]" if eia_date else "[Datum unbekannt]"
-    us_status = f"[Stand: {us_date}]" if us_date else "[Datum unbekannt]"
-    lng_status = f"[letzter bekannter Wert: {lng_date}]" if lng_date else "[keine Meldung]"
+    # Gewichteter Score (Beispielberechnung)
+    weights = [1.5, 1.0, 1.0, 1.0, 1.0]
+    inputs = [eia_storage, us_prod, lng_feedgas, futures_curve, cot_money]
+    weighted_score = sum(w * v for w, v in zip(weights, inputs))
 
-    # Score Berechnung (vereinfachtes Beispiel)
-    score = eia_storage * 0.3 + us_prod * 0.3 + lng_feedgas * 0.2 + futures_curve * 0.1 + cot_money * 0.1
-    prob_rise = min(max(score * 10, 0), 100)  # Prozent zwischen 0–100
+    # Wahrscheinlichkeit, dass Gaspreis steigt
+    prob_rise = min(weighted_score, 100.0)  # Max 100%
 
-    output = f"""
-===================================
-      NATURAL GAS PRICE FORECAST
-===================================
-Datum: {datetime.utcnow()} UTC
+    # Datum UTC
+    now = datetime.utcnow()
 
-Eingabewerte (0–10 Skala):
-  EIA Storage         : {eia_storage}  {storage_status}
-  US Production       : {us_prod}  {us_status}
-  LNG Feedgas         : {lng_feedgas}  {lng_status}
-  Futures Curve       : {futures_curve}  [Platzhalter]
-  COT Managed Money   : {cot_money}  [Platzhalter]
+    # Ausgabe
+    output = [
+        "===================================",
+        "      NATURAL GAS PRICE FORECAST",
+        "===================================",
+        f"Datum: {now} UTC",
+        "",
+        "Eingabewerte (0–10 Skala):",
+        f"  EIA Storage         : {eia_storage:.2f}  [aktuell vom {eia_date}]",
+        f"  US Production       : {us_prod:.2f}  [aktuell vom {us_date}]",
+        f"  LNG Feedgas         : {lng_feedgas:.2f}  [aktuell vom {lng_date}]" if lng_feedgas > 0 else
+        f"  LNG Feedgas         : {lng_feedgas:.2f}  [keine neue Meldung, letzte Woche]",
+        f"  Futures Curve       : {futures_curve:.2f}  [Platzhalter]",
+        f"  COT Managed Money   : {cot_money:.2f}  [Platzhalter]",
+        "",
+        f"Gewichteter Score: {weighted_score:.2f}",
+        f"Wahrscheinlichkeit, dass Gaspreis steigt: {prob_rise:.1f}%",
+        "==================================="
+    ]
 
-Gewichteter Score: {score:.2f}
-Wahrscheinlichkeit, dass Gaspreis steigt: {prob_rise:.1f}%
-===================================
-"""
-    # Ausgabe speichern
-    with open("forecast_output.txt", "w", encoding="utf-8") as f:
-        f.write(output)
-    print(output)
+    text = "\n".join(output)
+    print(text)
+
+    with open(FORECAST_OUTPUT, "w", encoding="utf-8") as f:
+        f.write(text)
 
 def main():
     eia_storage = load_input("eia_storage.txt")
@@ -48,11 +59,10 @@ def main():
     futures_curve = 0.0
     cot_money = 0.0
 
-    # Für Demo: Datum aus den Dateien (falls separat gespeichert)
-    # sonst None
-    eia_date = os.getenv("EIA_DATE", None)
-    us_date = os.getenv("US_PROD_DATE", None)
-    lng_date = os.getenv("LNG_DATE", None)
+    # Optional: Datum aus Umgebungsvariablen
+    eia_date = os.getenv("EIA_DATE", "unbekannt")
+    us_date = os.getenv("US_PROD_DATE", "unbekannt")
+    lng_date = os.getenv("LNG_DATE", "unbekannt")
 
     run_forecast(eia_storage, eia_date,
                  us_prod, us_date,
