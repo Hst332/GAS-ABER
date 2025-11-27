@@ -1,15 +1,16 @@
+
 ===================================
       NATURAL GAS PRICE FORECAST   
 ===================================
-Datum: 2025-11-22 19:26:52.052047 (UTC)
+Datum: 2025-11-27 12:35:04 UTC
 
-Eingabewerte:
-  EIA Storage         : 6.5
-  US Production       : 5.0
-  LNG Feedgas         : 7.0
-  Futures Curve       : 4.5
-  COT Managed Money   : 3.0
+Eingabewerte (0–10 Skala):
+  EIA Storage         : 10.00  [aktuell]
+  US Production       : 10.00  [aktuell]
+  LNG Feedgas         : 0.00  [Platzhalter]
+  Futures Curve       : 0.00  [Platzhalter]
+  COT Managed Money   : 0.00  [Platzhalter]
 
-Gewichteter Score: 5.38
-Wahrscheinlichkeit, dass Gaspreis steigt: 53.8%
+Gewichteter Score: 4.50
+Wahrscheinlichkeit, dass Gaspreis steigt: 45.0%
 ===================================
