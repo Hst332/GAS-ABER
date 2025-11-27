@@ -55,6 +55,12 @@ jobs:
           LNG=$(cat lng_feedgas.txt)
           echo "LNG_FEEDGAS=$LNG" >> $GITHUB_ENV
 
+      - name: Fetch LNG Feedgas
+        run: |
+          echo "[INFO] Fetching LNG Feedgas"
+          python fetch_lng_feedgas.py > lng_feedgas.txt
+          LNG_FEEDGAS=$(cat lng_feedgas.txt)
+          echo "LNG_FEEDGAS=$LNG_FEEDGAS" >> $GITHUB_ENV
 
       - name: Commit forecast output
         run: |
