@@ -52,7 +52,7 @@ jobs:
           US_PROD=$(cat us_production.txt)
           echo "US_PRODUCTION=$US_PROD" >> $GITHUB_ENV
 
-      # LNG Feedgas automatisch abrufen (Fallback auf letzte Meldung)
+      # LNG Feedgas automatisch abrufen (optional)
       - name: Fetch LNG Feedgas
         run: |
           python fetch_lng_feedgas.py > lng_feedgas.txt || echo "Fehler beim Abrufen, letzte verfügbare Meldung wird genutzt"
@@ -68,12 +68,3 @@ jobs:
             --lng-feedgas $LNG_FEEDGAS \
             --futures-curve 0 \
             --cot-managed-money 0
-
-      # Optional: Forecast Output ins Repository schreiben
-      # - name: Commit forecast output
-      #   run: |
-      #     git config user.name "github-actions"
-      #     git config user.email "github-actions@github.com"
-      #     git add forecast_output.txt
-      #     git commit -m "Update gas price forecast"
-      #     git push
