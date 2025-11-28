@@ -58,3 +58,7 @@ Wahrscheinlichkeit, dass Gaspreis steigt: {probability:.1f}%
 
 if __name__ == "__main__":
     main()
+
+
+if __name__ == "__main__":
+    main()
