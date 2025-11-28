@@ -22,7 +22,8 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.10
+          python-version: "3.10"
+          check-latest: true
 
       # Abhängigkeiten installieren
       - name: Install dependencies
@@ -52,7 +53,7 @@ jobs:
           US_PROD=$(cat us_production.txt)
           echo "US_PRODUCTION=$US_PROD" >> $GITHUB_ENV
 
-      # LNG Feedgas automatisch abrufen (optional)
+      # LNG Feedgas automatisch abrufen
       - name: Fetch LNG Feedgas
         run: |
           python fetch_lng_feedgas.py > lng_feedgas.txt || echo "Fehler beim Abrufen, letzte verfügbare Meldung wird genutzt"
@@ -68,10 +69,3 @@ jobs:
             --lng-feedgas $LNG_FEEDGAS \
             --futures-curve 0 \
             --cot-managed-money 0
-
-      # forecast_output.txt als Artifact hochladen
-      - name: Upload forecast output
-        uses: actions/upload-artifact@v4
-        with:
-          name: forecast_output
-          path: forecast_output.txt
