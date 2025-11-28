@@ -2,95 +2,59 @@
 import argparse
 from datetime import datetime
 
-# ---------- Hilfsfunktionen ----------
-
-def safe_float(x, default=0.0):
-    try:
-        return float(x)
-    except Exception:
-        return default
-
-def clamp(value, min_val=0.0, max_val=10.0):
-    return max(min_val, min(max_val, value))
-
-def normalize(value, max_realistic):
-    """
-    Skaliert reale Werte auf 0–10
-    """
-    if max_realistic <= 0:
-        return 0.0
-    return clamp((value / max_realistic) * 10.0)
-
-# ---------- Hauptlogik ----------
-
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--eia-storage", required=True)
-    parser.add_argument("--us-production", required=True)
-    parser.add_argument("--lng-feedgas", required=True)
-    parser.add_argument("--futures-curve", required=True)
-    parser.add_argument("--cot-managed-money", required=True)
-
+    parser.add_argument("--eia-storage", type=float, required=True)
+    parser.add_argument("--us-production", type=float, required=True)
+    parser.add_argument("--lng-feedgas", type=float, required=True)
+    parser.add_argument("--futures-curve", type=float, required=True)
+    parser.add_argument("--cot-managed-money", type=float, required=True)
     args = parser.parse_args()
 
-    # Rohwerte
-    eia_storage_raw = safe_float(args.eia_storage)
-    us_prod_raw = safe_float(args.us_production)
-    lng_raw = safe_float(args.lng_feedgas)
-    futures = safe_float(args.futures_curve)
-    cot = safe_float(args.cot_managed_money)
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    # Normalisierung (REALISTISCHE MAXIMA!)
-    eia_storage = normalize(eia_storage_raw, 4000)   # Bcf
-    us_production = normalize(us_prod_raw, 100)      # Bcf/d
-    lng_feedgas = normalize(lng_raw, 14)              # Bcf/d
-
-    futures = clamp(futures)
-    cot = clamp(cot)
-
-    # Gewichtung (Summe = 1.0)
+    # Gewichtung (bewusst konservativ)
     weights = {
-        "eia": 0.30,
-        "prod": 0.25,
-        "lng": 0.20,
+        "storage": -0.30,
+        "production": -0.25,
+        "lng": 0.25,
         "futures": 0.15,
-        "cot": 0.10
+        "cot": 0.05,
     }
 
     score = (
-        eia_storage * weights["eia"] +
-        us_production * weights["prod"] +
-        lng_feedgas * weights["lng"] +
-        futures * weights["futures"] +
-        cot * weights["cot"]
+        args.eia_storage * weights["storage"] +
+        args.us_production * weights["production"] +
+        args.lng_feedgas * weights["lng"] +
+        args.futures_curve * weights["futures"] +
+        args.cot_managed_money * weights["cot"]
     )
 
-    probability = clamp(score * 10, 0, 100)
+    probability = max(0.0, min(100.0, 50 + score))
 
-    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-
-    output = f"""
-===================================
+    output = f"""===================================
       NATURAL GAS PRICE FORECAST
 ===================================
-Datum: {now}
+Datum: {timestamp}
 
 Eingabewerte (0–10 Skala):
-  EIA Storage         : {eia_storage:.2f}  [vom Datenabruf]
-  US Production       : {us_production:.2f}  [vom Datenabruf]
-  LNG Feedgas         : {lng_feedgas:.2f}  [letzte verfügbare Schätzung]
-  Futures Curve       : {futures:.2f}  [Platzhalter]
-  COT Managed Money   : {cot:.2f}  [Platzhalter]
+  EIA Storage         : {args.eia_storage:.2f}
+  US Production       : {args.us_production:.2f}
+  LNG Feedgas         : {args.lng_feedgas:.2f}
+  Futures Curve       : {args.futures_curve:.2f}
+  COT Managed Money   : {args.cot_managed_money:.2f}
 
 Gewichteter Score: {score:.2f}
 Wahrscheinlichkeit, dass Gaspreis steigt: {probability:.1f}%
 ===================================
 """
 
-    print(output.strip())
-
+    # 🔒 HIER IST DER ENTSCHEIDENDE TEIL
     with open("forecast_output.txt", "w", encoding="utf-8") as f:
-        f.write(output.strip())
+        f.write(output)
+
+    # weiterhin Console Output
+    print(output)
 
 if __name__ == "__main__":
     main()
