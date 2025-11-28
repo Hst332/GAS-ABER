@@ -1,35 +1,46 @@
 # fetch_lng_feedgas.py
+import os
 import requests
 import sys
-from datetime import datetime
 
-"""
-LNG Feedgas ist NICHT zuverlässig als CSV verfügbar.
-Diese Version ist bewusst DEFENSIV:
-- Bei Fehlern: 0.0
-- Niemals Text, niemals Exception nach außen
-"""
+EIA_API_KEY = os.getenv("EIA_API_KEY")
+
+SERIES_ID = "NG.N8110US2.M"  # Monthly LNG exports, Bcf/d (STABIL)
 
 def main():
+    if not EIA_API_KEY:
+        print("0.0")
+        print("[WARN] Kein EIA_API_KEY gesetzt", file=sys.stderr)
+        return
+
+    url = (
+        "https://api.eia.gov/v2/seriesid/"
+        f"{SERIES_ID}/data/"
+        f"?api_key={EIA_API_KEY}&length=1"
+    )
+
     try:
-        # Platzhalter – EIA bietet hier KEINE stabile öffentliche CSV
-        # Sobald eine valide Series-ID existiert, wird sie hier ersetzt
-        lng_value = 0.0
-        lng_date = "keine neue Meldung"
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        data = r.json()
 
-        # Ausgabe NUR ZAHL (wichtig für GitHub Actions)
-        print(f"{lng_value}")
+        value = data["response"]["data"][0]["value"]
+        period = data["response"]["data"][0]["period"]
 
-        # Debug optional auf stderr
+        value = float(value)
+
+        # WICHTIG: stdout = NUR ZAHL
+        print(f"{value}")
+
+        # Debug auf stderr
         print(
-            f"[INFO] LNG Feedgas: {lng_value} ({lng_date})",
+            f"[INFO] LNG Feedgas {value} Bcf/d (Periode {period}, monatlich)",
             file=sys.stderr
         )
 
     except Exception as e:
-        # Absoluter Fallback – garantiert stabil
         print("0.0")
-        print(f"[ERROR] LNG Feedgas Fehler: {e}", file=sys.stderr)
+        print(f"[ERROR] LNG Feedgas Fallback: {e}", file=sys.stderr)
 
 if __name__ == "__main__":
     main()
