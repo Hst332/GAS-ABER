@@ -31,8 +31,6 @@ jobs:
               # =====================
     # LIVE FORECAST
     # =====================
-    model.fit(X, y)
-
     last_row = df.iloc[-1:]
     prob_up = model.predict_proba(last_row[features])[0][1]
     signal = "UP" if prob_up > 0.5 else "DOWN"
