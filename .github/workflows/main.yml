@@ -1,43 +1,24 @@
-name: Gas Price Forecast
+name: Gas Forecast
 
-on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
-  run-forecast:
+  run:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Verify CSV availability
-        run: |
-          if [ ! -f gas.csv ] && [ ! -f data/gas.csv ]; then
-          echo "gas.csv not found"; exit 1
-          fi
-          if [ ! -f oil.csv ] && [ ! -f data/oil.csv ]; then
-          echo "oil.csv not found"; exit 1
-          fi
-          if [ ! -f weather.csv ] && [ ! -f data/weather.csv ]; then
-          echo "weather.csv not found"; exit 1
-          fi
-          echo "All CSVs found ✅"
-
-      - name: Run gas price forecast
+      - name: Run forecast
         env:
-          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
           python gas_price_forecast.py
