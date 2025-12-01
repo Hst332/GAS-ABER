@@ -18,11 +18,24 @@ from sklearn.inspection import permutation_importance
 # =========================
 
 BASE_DIR = Path(__file__).resolve().parent
+
 DATA_DIR = BASE_DIR / "data"
 
-GAS_CSV = DATA_DIR / "gas.csv"
-OIL_CSV = DATA_DIR / "oil.csv"
-WEATHER_CSV = DATA_DIR / "weather.csv"
+def resolve_csv(filename: str) -> Path:
+    p1 = DATA_DIR / filename
+    p2 = BASE_DIR / filename
+    if p1.exists():
+        return p1
+    if p2.exists():
+        return p2
+    raise FileNotFoundError(
+        f"{filename} not found. Looked in {p1} and {p2}"
+    )
+
+GAS_CSV = resolve_csv("gas.csv")
+OIL_CSV = resolve_csv("oil.csv")
+WEATHER_CSV = resolve_csv("weather.csv")
+
 
 # =========================
 # SAFE CSV LOAD
