@@ -7,28 +7,21 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import accuracy_score
 
-# ==============================
+# =====================
 # CONFIG
-# ==============================
-
-FRED_SERIES = "DHHNGSP"
+# =====================
 START_DATE = "2018-01-01"
-OIL_CSV = "data/oil.csv"
-WEATHER_CSV = "data/weather.csv"
 
+FRED_GAS = "DHHNGSP"     # Henry Hub Gas
+FRED_OIL = "DCOILWTICO" # WTI Oil
 
-# ==============================
-# DATA LOADERS
-# ==============================
-
-def load_gas_from_fred():
-    api_key = os.getenv("FRED_API_KEY")
-    if not api_key:
-        raise RuntimeError("FRED_API_KEY not set")
-
+# =====================
+# HELPERS
+# =====================
+def fetch_fred(series_id, api_key):
     url = "https://api.stlouisfed.org/fred/series/observations"
     params = {
-        "series_id": FRED_SERIES,
+        "series_id": series_id,
         "api_key": api_key,
         "file_type": "json",
         "observation_start": START_DATE
@@ -36,95 +29,114 @@ def load_gas_from_fred():
 
     r = requests.get(url, params=params, timeout=20)
     r.raise_for_status()
-    obs = r.json()["observations"]
 
-    df = pd.DataFrame(obs)
+    df = pd.DataFrame(r.json()["observations"])
     df = df[["date", "value"]]
-    df.columns = ["Date", "Gas_Close"]
-    df["Gas_Close"] = pd.to_numeric(df["Gas_Close"], errors="coerce")
+    df.columns = ["Date", series_id]
     df["Date"] = pd.to_datetime(df["Date"])
-    df = df.dropna().sort_values("Date")
+    df[series_id] = pd.to_numeric(df[series_id], errors="coerce")
 
-    return df
-
-
-def load_local_csv(path):
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"{path} not found")
-    return pd.read_csv(path, parse_dates=["Date"])
+    return df.dropna().sort_values("Date")
 
 
-# ==============================
-# FEATURE ENGINEERING
-# ==============================
+def fetch_weather_open_meteo(start, end):
+    # Repräsentative US-Zone (Midwest)
+    url = "https://archive-api.open-meteo.com/v1/archive"
+    params = {
+        "latitude": 39.0,
+        "longitude": -96.0,
+        "start_date": start,
+        "end_date": end,
+        "daily": "temperature_2m_mean",
+        "timezone": "UTC"
+    }
 
+    r = requests.get(url, params=params, timeout=20)
+    r.raise_for_status()
+    data = r.json()["daily"]
+
+    df = pd.DataFrame({
+        "Date": pd.to_datetime(data["time"]),
+        "Temp": data["temperature_2m_mean"]
+    })
+
+    df["HDD"] = np.maximum(18 - df["Temp"], 0)
+    df["CDD"] = np.maximum(df["Temp"] - 18, 0)
+
+    return df[["Date", "HDD", "CDD"]]
+
+
+# =====================
+# FEATURES
+# =====================
 def build_features(df):
     df = df.copy()
-    df["Gas_Return"] = df["Gas_Close"].pct_change()
 
-    for l in range(1, 6):
-        df[f"Gas_Return_lag{l}"] = df["Gas_Return"].shift(l)
-        df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
-        df[f"HDD_lag{l}"] = df["HDD"].shift(l)
-        df[f"CDD_lag{l}"] = df["CDD"].shift(l)
+    df["Gas_Return"] = df["Gas"].pct_change()
+    df["Oil_Return"] = df["Oil"].pct_change()
 
-    df["Momentum7"] = df["Gas_Close"].pct_change(7).shift(1)
+    for lag in range(1, 6):
+        df[f"Gas_lag{lag}"] = df["Gas_Return"].shift(lag)
+        df[f"Oil_lag{lag}"] = df["Oil_Return"].shift(lag)
+        df[f"HDD_lag{lag}"] = df["HDD"].shift(lag)
+        df[f"CDD_lag{lag}"] = df["CDD"].shift(lag)
+
+    df["Momentum7"] = df["Gas"].pct_change(7).shift(1)
     df["Volatility5"] = df["Gas_Return"].rolling(5).std().shift(1)
 
-    df["Target"] = (df["Gas_Close"].shift(-1) > df["Gas_Close"]).astype(int)
+    df["Target"] = (df["Gas"].shift(-1) > df["Gas"]).astype(int)
 
-    df = df.dropna()
-    return df
+    return df.dropna()
 
 
-# ==============================
-# MAIN PIPELINE
-# ==============================
-
+# =====================
+# MAIN
+# =====================
 def main():
-    print("Loading online gas price...")
-    gas = load_gas_from_fred()
+    fred_key = os.getenv("FRED_API_KEY")
+    if not fred_key:
+        raise RuntimeError("FRED_API_KEY not set")
 
-    print("Loading oil & weather...")
-    oil = load_local_csv(OIL_CSV)
-    weather = load_local_csv(WEATHER_CSV)
+    print("Fetching gas & oil from FRED...")
+    gas = fetch_fred(FRED_GAS, fred_key).rename(columns={FRED_GAS: "Gas"})
+    oil = fetch_fred(FRED_OIL, fred_key).rename(columns={FRED_OIL: "Oil"})
 
-    weather = weather.groupby("Date", as_index=False)[["HDD", "CDD"]].mean()
+    df = gas.merge(oil, on="Date", how="inner")
 
-    oil["Oil_Return"] = oil["Oil_Close"].pct_change()
+    print("Fetching weather...")
+    weather = fetch_weather_open_meteo(
+        df["Date"].min().strftime("%Y-%m-%d"),
+        df["Date"].max().strftime("%Y-%m-%d"),
+    )
 
-    df = gas.merge(oil[["Date", "Oil_Return"]], on="Date", how="inner")
     df = df.merge(weather, on="Date", how="inner")
-    df = df.dropna().sort_values("Date")
-
     df = build_features(df)
 
-    features = [c for c in df.columns if c not in ["Date", "Gas_Close", "Target"]]
-    X = df[features]
-    y = df["Target"]
+    features = [c for c in df.columns if c not in ["Date", "Gas", "Target"]]
+    X, y = df[features], df["Target"]
 
-    print(f"Dataset rows: {len(df)}, features: {len(features)}")
+    print(f"Rows: {len(df)} | Features: {len(features)}")
 
-    tss = TimeSeriesSplit(n_splits=5)
+    tss = TimeSeriesSplit(5)
     accs = []
 
-    for i, (train, test) in enumerate(tss.split(X)):
+    for i, (tr, te) in enumerate(tss.split(X)):
         model = RandomForestClassifier(
-            n_estimators=300,
-            max_depth=6,
-            min_samples_leaf=20,
+            n_estimators=400,
+            max_depth=7,
+            min_samples_leaf=25,
             random_state=42,
             n_jobs=-1
         )
-        model.fit(X.iloc[train], y.iloc[train])
-        pred = model.predict(X.iloc[test])
-        acc = accuracy_score(y.iloc[test], pred)
+        model.fit(X.iloc[tr], y.iloc[tr])
+        pred = model.predict(X.iloc[te])
+        acc = accuracy_score(y.iloc[te], pred)
         accs.append(acc)
-        print(f"Split {i} accuracy: {acc:.3f}")
+        print(f"Split {i}: {acc:.3f}")
 
-    print("===================================")
-    print(f"Mean accuracy: {np.mean(accs):.3f}")
-    print("===================================")
+    print("====================================")
+    print(f"MEAN ACCURACY: {np.mean(accs):.3f}")
+    print("====================================")
 
 
 if __name__ == "__main__":
