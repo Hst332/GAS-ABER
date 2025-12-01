@@ -24,7 +24,10 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
           python gas_price_forecast.py
-          
+
+      - name: Show forecast
+        run: |
+          cat forecast_output.txt
               # =====================
     # LIVE FORECAST
     # =====================
