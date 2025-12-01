@@ -24,18 +24,17 @@ jobs:
           pip install -r requirements.txt
 
       - name: Verify CSV availability
-          run: |
-            if [ ! -f gas.csv ] && [ ! -f data/gas.csv ]; then
-              echo "gas.csv not found"; exit 1
-            fi
-            if [ ! -f oil.csv ] && [ ! -f data/oil.csv ]; then
-              echo "oil.csv not found"; exit 1
-            fi
-            if [ ! -f weather.csv ] && [ ! -f data/weather.csv ]; then
-              echo "weather.csv not found"; exit 1
-            fi
-            echo "All CSVs found ✅"
-
+        run: |
+          if [ ! -f gas.csv ] && [ ! -f data/gas.csv ]; then
+          echo "gas.csv not found"; exit 1
+          fi
+          if [ ! -f oil.csv ] && [ ! -f data/oil.csv ]; then
+          echo "oil.csv not found"; exit 1
+          fi
+          if [ ! -f weather.csv ] && [ ! -f data/weather.csv ]; then
+          echo "weather.csv not found"; exit 1
+          fi
+          echo "All CSVs found ✅"
 
       - name: Run gas price forecast
         env:
