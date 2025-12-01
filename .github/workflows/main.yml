@@ -24,3 +24,24 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
           python gas_price_forecast.py
+          
+              # =====================
+    # LIVE FORECAST
+    # =====================
+    model.fit(X, y)
+
+    last_row = df.iloc[-1:]
+    prob_up = model.predict_proba(last_row[features])[0][1]
+    signal = "UP" if prob_up > 0.5 else "DOWN"
+
+    with open("forecast_output.txt", "w") as f:
+        f.write(f"DATE: {last_row['Date'].values[0]}\n")
+        f.write(f"GAS PRICE: {last_row['Gas'].values[0]:.3f}\n")
+        f.write(f"GAS RETURN: {last_row['Gas_Return'].values[0]:.4f}\n")
+        f.write(f"HDD: {last_row['HDD'].values[0]:.2f}\n")
+        f.write(f"CDD: {last_row['CDD'].values[0]:.2f}\n")
+        f.write(f"FORECAST: {signal}\n")
+        f.write(f"PROB_UP: {prob_up:.3f}\n")
+
+    print("✅ forecast_output.txt updated")
+
