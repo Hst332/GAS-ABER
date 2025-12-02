@@ -33,7 +33,7 @@ PROB_THRESHOLD = 0.5
 # =======================
 def load_prices():
     print("[INFO] Downloading prices since", START_DATE)
-    gas = yf.download(SYMBOL_GAS, start=START_DATE, progress=False)[["Close"]]
+    gas = yf.download(SYMBOL_GAS, start=START_DATE, progress=False, auto_adjust=False)[["Close"]]
     oil = yf.download(SYMBOL_OIL, start=START_DATE, progress=False)[["Close"]]
 
     gas.rename(columns={"Close": "Gas_Close"}, inplace=True)
