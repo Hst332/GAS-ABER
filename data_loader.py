@@ -2,9 +2,6 @@ import os
 import requests
 import pandas as pd
 
-FRED_API_KEY = os.getenv("FRED_API_KEY")
-SERIES_ID = "DHHNGSP"
-
 def load_gas_from_fred(start="2018-01-01"):
     if not FRED_API_KEY:
         raise RuntimeError("FRED_API_KEY not set")
@@ -27,6 +24,21 @@ def load_gas_from_fred(start="2018-01-01"):
 
     df["Gas_Close"] = pd.to_numeric(df["Gas_Close"], errors="coerce")
     df["Date"] = pd.to_datetime(df["Date"])
-    df = df.dropna()
+    df = df.dropna().sort_values("Date")
 
+    # =========================
+    # ✅ ESSENTIELLE ML-FEATURES
+    # =========================
+
+    # Daily Return
+    df["Gas_Return"] = df["Gas_Close"].pct_change()
+
+    # Target: steigt der Preis morgen?
+    df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
+
+    # Lags (harmlos + stabil)
+    for lag in [1, 2, 3, 5, 7]:
+        df[f"Gas_Return_lag{lag}"] = df["Gas_Return"].shift(lag)
+
+    df = df.dropna().reset_index(drop=True)
     return df
