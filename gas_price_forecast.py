@@ -65,7 +65,7 @@ def build_features(df):
     return df
 
 # =======================
-# TRAINING (Line ~80)
+# MODEL TRAINING (Line ~70)
 # =======================
 def train_model(df, features):
     X = df[features]
