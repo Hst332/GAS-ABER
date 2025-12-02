@@ -90,6 +90,22 @@ def train_model(df, features):
     return model, float(np.mean(accs)), float(np.std(accs))
 
 # =======================
+# STORAGE SURPRISE (NEW)
+# =======================
+# Erwartete Storage-Änderung = 5W Moving Average
+df["Storage_Exp"] = (
+    df["Storage_Change"]
+    .rolling(window=5, min_periods=3)
+    .mean()
+)
+
+# Surprise = Ist - Erwartet
+df["Storage_Surprise"] = df["Storage_Change"] - df["Storage_Exp"]
+
+# Robust gegen Early NaNs
+df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
+
+# =======================
 # FORECAST OUTPUT (Line ~115)
 # =======================
 def write_forecast(prob_up, acc_mean, acc_std, last_date):
