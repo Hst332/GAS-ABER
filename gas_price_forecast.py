@@ -117,13 +117,37 @@ def main():
     df = load_prices()
     df = build_features(df)
 
-features = [c for c in df.columns if "lag" in c]
+def train_model(df, features):
+    from sklearn.model_selection import TimeSeriesSplit
+    from sklearn.ensemble import RandomForestClassifier
+    import numpy as np
+
+    if "Target" not in df.columns:
+        raise RuntimeError("Target column missing")
+
     if len(features) == 0:
-    raise RuntimeError("No feature columns created – check build_features()")
+        raise RuntimeError("No feature columns created")
+
     X = df[features]
     y = df["Target"]
 
-    model, acc_mean, acc_std = train_model(df, features)
+    tscv = TimeSeriesSplit(n_splits=5)
+    accs = []
+
+    model = RandomForestClassifier(
+        n_estimators=300,
+        max_depth=6,
+        min_samples_leaf=20,
+        random_state=42,
+    )
+
+    for train_idx, test_idx in tscv.split(X):
+        model.fit(X.iloc[train_idx], y.iloc[train_idx])
+        accs.append(model.score(X.iloc[test_idx], y.iloc[test_idx]))
+
+    model.fit(X, y)
+
+    return model, float(np.mean(accs)), float(np.std(accs))
 
     # ===========================
     # LIVE FORECAST (Line ~160)
