@@ -117,9 +117,12 @@ def main():
     df = load_prices()
     df = build_features(df)
 
-   features = [c for c in df.columns if "lag" in c]
+      features = [c for c in df.columns if "lag" in c]
     if len(features) == 0:
-    raise RuntimeError("No feature columns created – check build_features()")
+        raise RuntimeError("No feature columns created – check build_features()")
+
+    X = df[features]
+    y = df["Target"]
 
     model, acc_mean, acc_std = train_model(df, features)
 
