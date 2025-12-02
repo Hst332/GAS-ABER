@@ -3,26 +3,23 @@
 # Stable / Online / CI-safe
 # ===================================================================
 
-
 import os
-import sys
-import json
 import numpy as np
 import pandas as pd
 from datetime import datetime
+
+import yfinance as yf
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import accuracy_score
-import yfinance as yf
-from oil_loader import load_oil_from_yahoo
 
 # =======================
-# SAFETY (Line ~20)
+# SAFETY
 # =======================
 assert callable(str), "FATAL: built-in 'str' overwritten"
 
 # =======================
-# CONFIG (Line ~25)
+# CONFIG
 # =======================
 START_DATE = "2015-01-01"
 FORECAST_FILE = "forecast_output.txt"
@@ -31,22 +28,30 @@ SYMBOL_OIL = "CL=F"
 PROB_THRESHOLD = 0.5
 
 # =======================
-# DATA LOADING (Line ~35)
+# DATA LOADING
 # =======================
 def load_prices():
     print("[INFO] Downloading prices since", START_DATE)
-    gas = yf.download(SYMBOL_GAS, start=START_DATE, progress=False, auto_adjust=False)[["Close"]]
-    oil = yf.download(SYMBOL_OIL, start=START_DATE, progress=False)[["Close"]]
+
+    gas = yf.download(
+        SYMBOL_GAS, start=START_DATE, progress=False, auto_adjust=False
+    )[["Close"]]
+
+    oil = yf.download(
+        SYMBOL_OIL, start=START_DATE, progress=False, auto_adjust=False
+    )[["Close"]]
 
     gas.rename(columns={"Close": "Gas_Close"}, inplace=True)
     oil.rename(columns={"Close": "Oil_Close"}, inplace=True)
 
     df = gas.join(oil, how="inner")
+    df = df.sort_index()
     df.dropna(inplace=True)
+
     return df
 
 # =======================
-# FEATURES (Line ~55)
+# FEATURES
 # =======================
 def build_features(df):
     df = df.copy()
@@ -58,16 +63,19 @@ def build_features(df):
         df[f"Gas_Return_lag{l}"] = df["Gas_Return"].shift(l)
         df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
 
-    # Target: NEXT DAY DIRECTION (NO LEAK)
+    # NEXT DAY DIRECTION
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
 
     df = df.iloc[10:].dropna()
     return df
 
 # =======================
-# MODEL TRAINING (Line ~70)
+# MODEL TRAINING
 # =======================
 def train_model(df, features):
+    if "Target" not in df.columns:
+        raise RuntimeError("Target column missing")
+
     X = df[features]
     y = df["Target"]
 
@@ -77,36 +85,20 @@ def train_model(df, features):
     model = RandomForestClassifier(
         n_estimators=300,
         max_depth=6,
-        min_samples_leaf=5,
-        random_state=42
+        min_samples_leaf=20,
+        random_state=42,
     )
 
     for tr, te in tscv.split(X):
         model.fit(X.iloc[tr], y.iloc[tr])
-        pred = model.predict(X.iloc[te])
-        accs.append(accuracy_score(y.iloc[te], pred))
+        accs.append(model.score(X.iloc[te], y.iloc[te]))
 
     model.fit(X, y)
+
     return model, float(np.mean(accs)), float(np.std(accs))
 
 # =======================
-# STORAGE SURPRISE (NEW)
-# =======================
-# Erwartete Storage-Änderung = 5W Moving Average
-df["Storage_Exp"] = (
-    df["Storage_Change"]
-    .rolling(window=5, min_periods=3)
-    .mean()
-)
-
-# Surprise = Ist - Erwartet
-df["Storage_Surprise"] = df["Storage_Change"] - df["Storage_Exp"]
-
-# Robust gegen Early NaNs
-df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
-
-# =======================
-# FORECAST OUTPUT (Line ~115)
+# FORECAST OUTPUT
 # =======================
 def write_forecast(prob_up, acc_mean, acc_std, last_date):
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -125,64 +117,36 @@ Probability price goes UP: {prob_up:.2%}
 Signal: {signal}
 ===================================
 """
+
     with open(FORECAST_FILE, "w", encoding="utf-8") as f:
         f.write(txt.strip())
 
 # =======================
-# MAIN (Line ~145)
+# MAIN
 # =======================
 def main():
     df = load_prices()
     df = build_features(df)
 
-def train_model(df, features):
-    from sklearn.model_selection import TimeSeriesSplit
-    from sklearn.ensemble import RandomForestClassifier
-    import numpy as np
+    features = [c for c in df.columns if "lag" in c]
+    if not features:
+        raise RuntimeError("No feature columns generated")
 
-    if "Target" not in df.columns:
-        raise RuntimeError("Target column missing")
+    model, acc_mean, acc_std = train_model(df, features)
 
-    if len(features) == 0:
-        raise RuntimeError("No feature columns created")
+    # LIVE FORECAST
+    last_row = df.iloc[-1:]
+    prob_up = model.predict_proba(last_row[features])[0][1]
 
-    X = df[features]
-    y = df["Target"]
-
-    tscv = TimeSeriesSplit(n_splits=5)
-    accs = []
-
-    model = RandomForestClassifier(
-        n_estimators=300,
-        max_depth=6,
-        min_samples_leaf=20,
-        random_state=42,
-    )
-
-    for train_idx, test_idx in tscv.split(X):
-        model.fit(X.iloc[train_idx], y.iloc[train_idx])
-        accs.append(model.score(X.iloc[test_idx], y.iloc[test_idx]))
-
-    model.fit(X, y)
-
-    return model, float(np.mean(accs)), float(np.std(accs))
-
-    # ===========================
-    # LIVE FORECAST (Line ~160)
-    # ===========================
-    last_row = df.iloc[-1:]                       # ✅ korrekt
-    prob_up = model.predict_proba(
-        last_row[features]
-    )[0][1]                                       # ✅ korrekt
-
-    last_date = df.index[-1].date().isoformat()  # ✅ KEIN str()
+    last_date = df.index[-1].date().isoformat()
 
     write_forecast(prob_up, acc_mean, acc_std, last_date)
 
     print("[OK] Forecast written to", FORECAST_FILE)
 
 # =======================
-# ENTRY (Line ~180)
+# ENTRY
 # =======================
 if __name__ == "__main__":
     main()
+
