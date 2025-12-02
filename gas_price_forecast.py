@@ -119,7 +119,7 @@ def main():
 
     features = [c for c in df.columns if "lag" in c]
     if len(features) == 0:
-        raise RuntimeError("No feature columns created – check build_features()")
+    raise RuntimeError("No feature columns created – check build_features()")
 
     X = df[features]
     y = df["Target"]
