@@ -3,6 +3,7 @@
 # Stable / Online / CI-safe
 # ===================================================================
 
+
 import os
 import sys
 import json
@@ -13,6 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import accuracy_score
 import yfinance as yf
+from oil_loader import load_oil_from_yahoo
 
 # =======================
 # SAFETY (Line ~20)
