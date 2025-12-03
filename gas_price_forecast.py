@@ -10,8 +10,7 @@ from datetime import datetime
 import yfinance as yf
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
-
-from fetch_eia_storage import load_storage_data
+import fetch_eia_storage
 
 # =======================
 # SAFETY
