@@ -1,6 +1,6 @@
 # ===================================================================
 # gas_price_forecast.py
-# Stable / Online / CI-safe
+# Stable / Online / CI-safe (robuste Price-Loading)
 # ===================================================================
 
 import numpy as np
@@ -30,44 +30,111 @@ PROB_THRESHOLD = 0.5
 # =======================
 # HELPERS
 # =======================
-def flatten_columns(df):
+def flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
-    гарантierte String-Spalten (fix für yfinance / CI)
+    Ensure df.columns are plain strings regardless of MultiIndex or tuple columns.
+    If a column is a tuple, join by '_' and strip spaces.
     """
-    df.columns = [
-        "_".join(c).strip() if isinstance(c, tuple) else str(c)
-        for c in df.columns
-    ]
+    df = df.copy()
+    new_cols = []
+    for c in df.columns:
+        if isinstance(c, tuple):
+            # join tuple elements which are not empty / None
+            joined = "_".join([str(x) for x in c if x is not None and str(x) != ""])
+            new_cols.append(joined)
+        else:
+            new_cols.append(str(c))
+    df.columns = new_cols
     return df
 
+def _find_close_column(df: pd.DataFrame) -> str:
+    """
+    Return the name of a column to be used as 'Close' price.
+    Strategy (in order):
+      1) exact 'Close'
+      2) any column that endswith '_Close' (case-insensitive)
+      3) any column that equals 'Adj Close' or contains 'adjclose' (some yfinance variants)
+      4) any column that contains 'close' substring (case-insensitive)
+      5) raise informative error listing df.columns
+    """
+    cols = list(df.columns)
+    lower_map = {c: c.lower() for c in cols}
+
+    # 1) exact Close
+    for c in cols:
+        if c == "Close":
+            return c
+
+    # 2) endswith _Close or endswith Close (case-insensitive)
+    for c in cols:
+        if lower_map[c].endswith("_close") or lower_map[c].endswith("close"):
+            return c
+
+    # 3) common alternative names
+    for c in cols:
+        if "adj close" in lower_map[c] or "adjclose" in lower_map[c]:
+            return c
+
+    # 4) fallback any column that contains 'close'
+    for c in cols:
+        if "close" in lower_map[c]:
+            return c
+
+    # 5) nothing found -> raise with helpful debug
+    raise RuntimeError(
+        "Could not find a 'Close' column in dataframe. Columns present:\n  "
+        + ", ".join(cols)
+        + "\nTip: inspect the downloaded DataFrames from yfinance."
+    )
+
 # =======================
-# DATA LOADING
+# DATA LOADING (robust)
 # =======================
 def load_prices():
     print("[INFO] Downloading prices since", START_DATE)
 
-    gas = yf.download(
+    # download raw frames
+    gas_raw = yf.download(
         SYMBOL_GAS,
         start=START_DATE,
         progress=False,
         auto_adjust=False,
     )
 
-    oil = yf.download(
+    oil_raw = yf.download(
         SYMBOL_OIL,
         start=START_DATE,
         progress=False,
         auto_adjust=False,
     )
 
-    gas = flatten_columns(gas)
-    oil = flatten_columns(oil)
+    # flatten columns to strings
+    gas = flatten_columns(gas_raw)
+    oil = flatten_columns(oil_raw)
 
-    gas = gas[["Close"]].rename(columns={"Close": "Gas_Close"})
-    oil = oil[["Close"]].rename(columns={"Close": "Oil_Close"})
+    # find the correct 'Close' column robustly
+    try:
+        gas_close_col = _find_close_column(gas)
+    except Exception as e:
+        print("[ERROR] gas dataframe columns:", gas.columns.tolist())
+        raise
 
+    try:
+        oil_close_col = _find_close_column(oil)
+    except Exception as e:
+        print("[ERROR] oil dataframe columns:", oil.columns.tolist())
+        raise
+
+    # rename selected close columns to canonical names and keep only them
+    gas = gas[[gas_close_col]].rename(columns={gas_close_col: "Gas_Close"})
+    oil = oil[[oil_close_col]].rename(columns={oil_close_col: "Oil_Close"})
+
+    # join, sort, drop missing
     df = gas.join(oil, how="inner")
     df = df.sort_index().dropna()
+
+    # quick sanity print for CI logs
+    print("[INFO] loaded price dataframe:", df.shape, "columns:", df.columns.tolist())
 
     return df
 
@@ -87,7 +154,9 @@ def build_features(df):
     # NEXT DAY TARGET (NO LEAK)
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
 
+    # Cleanup warmup rows
     df = df.iloc[10:].dropna()
+
     return df
 
 # =======================
@@ -149,11 +218,10 @@ def main():
         print("[WARN] Not enough data – skipping forecast")
         return
 
-    # ✅ NUR STRINGS, GARANTIERT
+    # safe feature selection
     features = [
         c for c in df.columns
-        if isinstance(c, str)
-        and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))
+        if isinstance(c, str) and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))
     ]
 
     if not features:
