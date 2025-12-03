@@ -1,6 +1,6 @@
 # ===================================================================
 # gas_price_forecast.py
-# Stable / Online / CI-safe (robuste Price-Loading)
+# Stable / Online / CI-safe (robuste Price-Loading + Storage Surprise)
 # ===================================================================
 
 import numpy as np
@@ -10,7 +10,8 @@ from datetime import datetime
 import yfinance as yf
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
-from fetch_eia_storage import load_storage_data   
+
+from fetch_eia_storage import load_storage_data
 
 # =======================
 # SAFETY
@@ -32,76 +33,38 @@ PROB_THRESHOLD = 0.5
 # HELPERS
 # =======================
 def flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Ensure df.columns are plain strings regardless of MultiIndex or tuple columns.
-    If a column is a tuple, join by '_' and strip spaces.
-    """
     df = df.copy()
-    new_cols = []
+    cols = []
     for c in df.columns:
         if isinstance(c, tuple):
-            # join tuple elements which are not empty / None
-            joined = "_".join([str(x) for x in c if x is not None and str(x) != ""])
-            new_cols.append(joined)
+            cols.append("_".join(str(x) for x in c if x))
         else:
-            new_cols.append(str(c))
-    df.columns = new_cols
+            cols.append(str(c))
+    df.columns = cols
     return df
 
+
 def _find_close_column(df: pd.DataFrame) -> str:
-    """
-    Return the name of a column to be used as 'Close' price.
-    Strategy (in order):
-      1) exact 'Close'
-      2) any column that endswith '_Close' (case-insensitive)
-      3) any column that equals 'Adj Close' or contains 'adjclose' (some yfinance variants)
-      4) any column that contains 'close' substring (case-insensitive)
-      5) raise informative error listing df.columns
-    """
-    cols = list(df.columns)
-    lower_map = {c: c.lower() for c in cols}
-
-    # 1) exact Close
-    for c in cols:
-        if c == "Close":
+    for c in df.columns:
+        if c.lower() == "close":
             return c
-
-    # 2) endswith _Close or endswith Close (case-insensitive)
-    for c in cols:
-        if lower_map[c].endswith("_close") or lower_map[c].endswith("close"):
+    for c in df.columns:
+        if "close" in c.lower():
             return c
-
-    # 3) common alternative names
-    for c in cols:
-        if "adj close" in lower_map[c] or "adjclose" in lower_map[c]:
-            return c
-
-    # 4) fallback any column that contains 'close'
-    for c in cols:
-        if "close" in lower_map[c]:
-            return c
-
-    # 5) nothing found -> raise with helpful debug
-    raise RuntimeError(
-        "Could not find a 'Close' column in dataframe. Columns present:\n  "
-        + ", ".join(cols)
-        + "\nTip: inspect the downloaded DataFrames from yfinance."
-    )
+    raise RuntimeError(f"No Close column found: {df.columns.tolist()}")
 
 # =======================
-# DATA LOADING (robust)
+# DATA LOADING
 # =======================
 def load_prices():
     print("[INFO] Downloading prices since", START_DATE)
 
-    # download raw frames
     gas_raw = yf.download(
         SYMBOL_GAS,
         start=START_DATE,
         progress=False,
         auto_adjust=False,
     )
-
     oil_raw = yf.download(
         SYMBOL_OIL,
         start=START_DATE,
@@ -109,69 +72,24 @@ def load_prices():
         auto_adjust=False,
     )
 
-    # flatten columns to strings
     gas = flatten_columns(gas_raw)
     oil = flatten_columns(oil_raw)
 
-    # find the correct 'Close' column robustly
-    try:
-        gas_close_col = _find_close_column(gas)
-    except Exception as e:
-        print("[ERROR] gas dataframe columns:", gas.columns.tolist())
-        raise
+    gas = gas[[_find_close_column(gas)]].rename(columns=lambda _: "Gas_Close")
+    oil = oil[[_find_close_column(oil)]].rename(columns=lambda _: "Oil_Close")
 
-    try:
-        oil_close_col = _find_close_column(oil)
-    except Exception as e:
-        print("[ERROR] oil dataframe columns:", oil.columns.tolist())
-        raise
+    df = gas.join(oil, how="inner").sort_index().dropna()
 
-    # rename selected close columns to canonical names and keep only them
-    gas = gas[[gas_close_col]].rename(columns={gas_close_col: "Gas_Close"})
-    oil = oil[[oil_close_col]].rename(columns={oil_close_col: "Oil_Close"})
-
-    # join, sort, drop missing
-    df = gas.join(oil, how="inner")
-    df = df.sort_index().dropna()
-
-    # quick sanity print for CI logs
-    print("[INFO] loaded price dataframe:", df.shape, "columns:", df.columns.tolist())
-
+    print("[INFO] loaded price dataframe:", df.shape)
     return df
 
 # =======================
 # FEATURES
 # =======================
-def build_features(df):
-  # =======================
-# EIA STORAGE (SAFE)
-# =======================
-try:
-    storage = load_storage_data()   # erwartet: Date, Storage
-    storage = storage.sort_values("Date")
+def build_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
 
-    storage["Storage_Change"] = storage["Storage"].diff()
-    storage["Storage_Exp"] = storage["Storage_Change"].rolling(4).mean()
-
-    storage["Storage_Surprise"] = (
-        storage["Storage_Change"] - storage["Storage_Exp"]
-    ).shift(1)
-
-    df = df.merge(
-        storage[["Date", "Storage_Surprise"]],
-        left_index=True,
-        right_on="Date",
-        how="left"
-    ).drop(columns=["Date"])
-
-    df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
-
-    print("[INFO] Storage Surprise added")
-
-except Exception as e:
-    print("[WARN] Storage data unavailable:", e)
-    df["Storage_Surprise"] = 0.0
-
+    # Returns
     df["Gas_Return"] = df["Gas_Close"].pct_change()
     df["Oil_Return"] = df["Oil_Close"].pct_change()
 
@@ -179,12 +97,38 @@ except Exception as e:
         df[f"Gas_Return_lag{l}"] = df["Gas_Return"].shift(l)
         df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
 
-    # NEXT DAY TARGET (NO LEAK)
+    # =======================
+    # EIA STORAGE SURPRISE
+    # =======================
+    try:
+        storage = load_storage_data()
+        storage = storage.sort_values("Date")
+
+        storage["Storage_Change"] = storage["Storage"].diff()
+        storage["Storage_Exp"] = storage["Storage_Change"].rolling(4).mean()
+        storage["Storage_Surprise"] = (
+            storage["Storage_Change"] - storage["Storage_Exp"]
+        ).shift(1)
+
+        df = df.merge(
+            storage[["Date", "Storage_Surprise"]],
+            left_index=True,
+            right_on="Date",
+            how="left",
+        ).drop(columns=["Date"])
+
+        df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
+
+        print("[INFO] Storage Surprise added")
+
+    except Exception as e:
+        print("[WARN] Storage data unavailable:", e)
+        df["Storage_Surprise"] = 0.0
+
+    # Target (next-day direction, no leak)
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
 
-    # Cleanup warmup rows
     df = df.iloc[10:].dropna()
-
     return df
 
 # =======================
@@ -246,14 +190,10 @@ def main():
         print("[WARN] Not enough data – skipping forecast")
         return
 
-    # safe feature selection
     features = [
         c for c in df.columns
-        if isinstance(c, str) and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))
+        if c.startswith(("Gas_Return_lag", "Oil_Return_lag"))
     ] + ["Storage_Surprise"]
-
-    if not features:
-        raise RuntimeError("No feature columns created")
 
     model, acc_mean, acc_std = train_model(df, features)
 
