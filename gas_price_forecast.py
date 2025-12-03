@@ -28,6 +28,19 @@ SYMBOL_OIL = "CL=F"
 PROB_THRESHOLD = 0.5
 
 # =======================
+# HELPERS
+# =======================
+def flatten_columns(df):
+    """
+    гарантierte String-Spalten (fix für yfinance / CI)
+    """
+    df.columns = [
+        "_".join(c).strip() if isinstance(c, tuple) else str(c)
+        for c in df.columns
+    ]
+    return df
+
+# =======================
 # DATA LOADING
 # =======================
 def load_prices():
@@ -38,7 +51,6 @@ def load_prices():
         start=START_DATE,
         progress=False,
         auto_adjust=False,
-        group_by="column",
     )
 
     oil = yf.download(
@@ -46,16 +58,16 @@ def load_prices():
         start=START_DATE,
         progress=False,
         auto_adjust=False,
-        group_by="column",
     )
 
-    # ✅ CRITICAL FIX: flatten columns (NO MultiIndex!)
-    gas = gas.rename(columns={"Close": "Gas_Close"})[["Gas_Close"]]
-    oil = oil.rename(columns={"Close": "Oil_Close"})[["Oil_Close"]]
+    gas = flatten_columns(gas)
+    oil = flatten_columns(oil)
+
+    gas = gas[["Close"]].rename(columns={"Close": "Gas_Close"})
+    oil = oil[["Close"]].rename(columns={"Close": "Oil_Close"})
 
     df = gas.join(oil, how="inner")
-    df = df.sort_index()
-    df = df.dropna()
+    df = df.sort_index().dropna()
 
     return df
 
@@ -72,12 +84,10 @@ def build_features(df):
         df[f"Gas_Return_lag{l}"] = df["Gas_Return"].shift(l)
         df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
 
-    # ✅ NEXT DAY TARGET (NO LEAKAGE)
+    # NEXT DAY TARGET (NO LEAK)
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
 
-    # Cleanup warmup rows
     df = df.iloc[10:].dropna()
-
     return df
 
 # =======================
@@ -102,7 +112,6 @@ def train_model(df, features):
         accs.append(model.score(X.iloc[te], y.iloc[te]))
 
     model.fit(X, y)
-
     return model, float(np.mean(accs)), float(np.std(accs))
 
 # =======================
@@ -136,15 +145,15 @@ def main():
     df = load_prices()
     df = build_features(df)
 
-    # Safety for CI
     if len(df) < 100:
         print("[WARN] Not enough data – skipping forecast")
         return
 
-    # ✅ GUARANTEED CORRECT FEATURE LIST
+    # ✅ NUR STRINGS, GARANTIERT
     features = [
         c for c in df.columns
-        if c.startswith(("Gas_Return_lag", "Oil_Return_lag"))
+        if isinstance(c, str)
+        and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))
     ]
 
     if not features:
@@ -165,4 +174,3 @@ def main():
 # =======================
 if __name__ == "__main__":
     main()
-
