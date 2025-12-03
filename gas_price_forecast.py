@@ -97,10 +97,18 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
 
     # =======================
-    # EIA STORAGE SURPRISE
+    # EIA STORAGE SURPRISE (SAFE)
     # =======================
     try:
-        storage = load_storage_data()
+        if hasattr(fetch_eia_storage, "load_storage_data"):
+            storage = fetch_eia_storage.load_storage_data()
+        elif hasattr(fetch_eia_storage, "get_storage_data"):
+            storage = fetch_eia_storage.get_storage_data()
+        else:
+            raise AttributeError(
+                "No suitable storage loader found in fetch_eia_storage.py"
+            )
+
         storage = storage.sort_values("Date")
 
         storage["Storage_Change"] = storage["Storage"].diff()
@@ -124,11 +132,6 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         print("[WARN] Storage data unavailable:", e)
         df["Storage_Surprise"] = 0.0
 
-    # Target (next-day direction, no leak)
-    df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
-
-    df = df.iloc[10:].dropna()
-    return df
 
 # =======================
 # MODEL TRAINING
