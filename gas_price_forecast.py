@@ -143,19 +143,16 @@ def load_prices():
 # FEATURES
 # =======================
 def build_features(df):
-    # =======================
+  # =======================
 # EIA STORAGE (SAFE)
 # =======================
 try:
-    storage = load_storage_data()  # erwartet: Date, Storage
+    storage = load_storage_data()   # erwartet: Date, Storage
     storage = storage.sort_values("Date")
 
     storage["Storage_Change"] = storage["Storage"].diff()
-
-    # Market expectation = rolling mean of last 4 weeks
     storage["Storage_Exp"] = storage["Storage_Change"].rolling(4).mean()
 
-    # Surprise = actual - expectation (SHIFTED to avoid leak)
     storage["Storage_Surprise"] = (
         storage["Storage_Change"] - storage["Storage_Exp"]
     ).shift(1)
@@ -169,11 +166,11 @@ try:
 
     df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
 
+    print("[INFO] Storage Surprise added")
+
 except Exception as e:
     print("[WARN] Storage data unavailable:", e)
     df["Storage_Surprise"] = 0.0
-
-    df = df.copy()
 
     df["Gas_Return"] = df["Gas_Close"].pct_change()
     df["Oil_Return"] = df["Oil_Close"].pct_change()
