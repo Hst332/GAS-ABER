@@ -10,6 +10,7 @@ from datetime import datetime
 import yfinance as yf
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
+from fetch_eia_storage import load_storage_data   
 
 # =======================
 # SAFETY
@@ -142,6 +143,36 @@ def load_prices():
 # FEATURES
 # =======================
 def build_features(df):
+    # =======================
+# EIA STORAGE (SAFE)
+# =======================
+try:
+    storage = load_storage_data()  # erwartet: Date, Storage
+    storage = storage.sort_values("Date")
+
+    storage["Storage_Change"] = storage["Storage"].diff()
+
+    # Market expectation = rolling mean of last 4 weeks
+    storage["Storage_Exp"] = storage["Storage_Change"].rolling(4).mean()
+
+    # Surprise = actual - expectation (SHIFTED to avoid leak)
+    storage["Storage_Surprise"] = (
+        storage["Storage_Change"] - storage["Storage_Exp"]
+    ).shift(1)
+
+    df = df.merge(
+        storage[["Date", "Storage_Surprise"]],
+        left_index=True,
+        right_on="Date",
+        how="left"
+    ).drop(columns=["Date"])
+
+    df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
+
+except Exception as e:
+    print("[WARN] Storage data unavailable:", e)
+    df["Storage_Surprise"] = 0.0
+
     df = df.copy()
 
     df["Gas_Return"] = df["Gas_Close"].pct_change()
