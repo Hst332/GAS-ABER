@@ -253,7 +253,7 @@ def main():
     features = [
         c for c in df.columns
         if isinstance(c, str) and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))
-    ]
+    ] + ["Storage_Surprise"]
 
     if not features:
         raise RuntimeError("No feature columns created")
