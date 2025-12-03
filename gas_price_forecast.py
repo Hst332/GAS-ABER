@@ -133,7 +133,7 @@ if df.shape[0] < 50:
     print("[WARN] Not enough data after feature build, skipping run.")
     return
 
-    features = [c for c in df.columns if "lag" in c]
+    features = [c for c in df.columns if c.endswith(tuple(str(i) for i in range(1, 6)))]
     if not features:
         raise RuntimeError("No feature columns generated")
 
