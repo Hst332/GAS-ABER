@@ -108,7 +108,7 @@ def build_features(df):
             ).drop(columns=["Date"])
 
             df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
-            # =======================
+    # =======================
     # SCALE STORAGE SURPRISE (NO LEAK)
     # =======================
             roll = df["Storage_Surprise"].rolling(52)
