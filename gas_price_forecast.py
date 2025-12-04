@@ -1,6 +1,6 @@
 # ===================================================================
 # gas_price_forecast.py
-# Stable / Online / CI-safe
+# Stable / Online / CI-safe / Storage-Surprise clean
 # ===================================================================
 
 import numpy as np
@@ -12,19 +12,13 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
 
 # =======================
-# OPTIONAL STORAGE IMPORT (SAFE)
+# OPTIONAL EIA STORAGE (SAFE)
 # =======================
 try:
     import fetch_eia_storage
 except Exception:
     fetch_eia_storage = None
-    
-def flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
-    if isinstance(df.columns, pd.MultiIndex):
-        df = df.copy()
-        df.columns = [c[0] for c in df.columns]  # nimmt "Close" aus ('Close','NG=F')
-    return df
-    
+
 # =======================
 # SAFETY
 # =======================
@@ -40,6 +34,16 @@ SYMBOL_GAS = "NG=F"
 SYMBOL_OIL = "CL=F"
 
 PROB_THRESHOLD = 0.5
+
+# =======================
+# HELPERS
+# =======================
+def flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Make sure columns are simple strings (yfinance MultiIndex-safe)."""
+    if isinstance(df.columns, pd.MultiIndex):
+        df = df.copy()
+        df.columns = [c[0] for c in df.columns]
+    return df
 
 # =======================
 # DATA LOADING
@@ -66,11 +70,10 @@ def load_prices():
     print("[INFO] loaded price dataframe:", df.shape)
     return df
 
-
 # =======================
-# FEATURES
+# FEATURE ENGINEERING
 # =======================
-def build_features(df):
+def build_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
     # --- Returns ---
@@ -81,8 +84,10 @@ def build_features(df):
         df[f"Gas_Return_lag{l}"] = df["Gas_Return"].shift(l)
         df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
 
-    # --- Storage Surprise (OPTIONAL) ---
-    df["Storage_Surprise"] = 0.0
+    # ==================================
+    # STORAGE SURPRISE (OPTIONAL / SAFE)
+    # ==================================
+    df["Storage_Surprise_Z"] = 0.0
 
     if fetch_eia_storage is not None:
         try:
@@ -96,6 +101,7 @@ def build_features(df):
             storage = storage.sort_values("Date")
             storage["Storage_Change"] = storage["Storage"].diff()
             storage["Storage_Exp"] = storage["Storage_Change"].rolling(4).mean()
+
             storage["Storage_Surprise"] = (
                 storage["Storage_Change"] - storage["Storage_Exp"]
             ).shift(1)
@@ -108,25 +114,26 @@ def build_features(df):
             ).drop(columns=["Date"])
 
             df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
-    # =======================
-    # SCALE STORAGE SURPRISE (NO LEAK)
-    # =======================
+
+            # --- Z-Score scaling (NO LEAK) ---
             roll = df["Storage_Surprise"].rolling(52)
-                df["Storage_Surprise_Z"] = (
+            df["Storage_Surprise_Z"] = (
                 (df["Storage_Surprise"] - roll.mean()) / roll.std()
             ).shift(1)
-        
-            df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].replace(
-                [np.inf, -np.inf], 0.0
-            ).fillna(0.0)
 
-            print("[INFO] Storage Surprise loaded")
+            df["Storage_Surprise_Z"] = (
+                df["Storage_Surprise_Z"]
+                .replace([np.inf, -np.inf], 0.0)
+                .fillna(0.0)
+            )
+
+            print("[INFO] Storage Surprise loaded & scaled")
 
         except Exception as e:
             print("[WARN] Storage data unavailable:", str(e))
-            df["Storage_Surprise"] = 0.0
+            df["Storage_Surprise_Z"] = 0.0
 
-    # --- Target (NO LEAK) ---
+    # --- Target (NEXT DAY, NO LEAK) ---
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
 
     df = df.dropna()
@@ -135,7 +142,7 @@ def build_features(df):
 # =======================
 # MODEL
 # =======================
-def train_model(df, features):
+def train_model(df: pd.DataFrame, features: list[str]):
     X = df[features]
     y = df["Target"]
 
@@ -191,7 +198,8 @@ def main():
         return
 
     features = (
-        [c for c in df.columns if c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
+        [c for c in df.columns if isinstance(c, str)
+         and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
         + ["Storage_Surprise_Z"]
     )
 
