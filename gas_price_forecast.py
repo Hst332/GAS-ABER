@@ -24,6 +24,19 @@ def flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
         df.columns = [c[0] for c in df.columns]  # nimmt "Close" aus ('Close','NG=F')
     return df
+    
+# =======================
+# SCALE STORAGE SURPRISE (NO LEAK)
+# =======================
+roll = df["Storage_Surprise"].rolling(52)
+
+df["Storage_Surprise_Z"] = (
+    (df["Storage_Surprise"] - roll.mean()) / roll.std()
+).shift(1)
+
+df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].replace(
+    [np.inf, -np.inf], 0.0
+).fillna(0.0)
 
 # =======================
 # SAFETY
@@ -180,7 +193,7 @@ def main():
 
     features = (
         [c for c in df.columns if c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
-        + ["Storage_Surprise"]
+        + ["Storage_Surprise_Z"]
     )
 
     model, acc_mean, acc_std = train_model(df, features)
