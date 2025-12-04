@@ -112,7 +112,6 @@ def build_features(df):
     # SCALE STORAGE SURPRISE (NO LEAK)
     # =======================
             roll = df["Storage_Surprise"].rolling(52)
-        
                 df["Storage_Surprise_Z"] = (
                 (df["Storage_Surprise"] - roll.mean()) / roll.std()
             ).shift(1)
