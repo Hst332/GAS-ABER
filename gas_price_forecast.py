@@ -1,6 +1,6 @@
 # ===================================================================
 # gas_price_forecast.py
-# Stable / Online / CI-safe (robuste Price-Loading + Storage Surprise)
+# Stable / Online / CI-safe
 # ===================================================================
 
 import numpy as np
@@ -10,7 +10,14 @@ from datetime import datetime
 import yfinance as yf
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
-import fetch_eia_storage
+
+# =======================
+# OPTIONAL STORAGE IMPORT (SAFE)
+# =======================
+try:
+    import fetch_eia_storage
+except Exception:
+    fetch_eia_storage = None
 
 # =======================
 # SAFETY
@@ -29,55 +36,19 @@ SYMBOL_OIL = "CL=F"
 PROB_THRESHOLD = 0.5
 
 # =======================
-# HELPERS
-# =======================
-def flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    cols = []
-    for c in df.columns:
-        if isinstance(c, tuple):
-            cols.append("_".join(str(x) for x in c if x))
-        else:
-            cols.append(str(c))
-    df.columns = cols
-    return df
-
-
-def _find_close_column(df: pd.DataFrame) -> str:
-    for c in df.columns:
-        if c.lower() == "close":
-            return c
-    for c in df.columns:
-        if "close" in c.lower():
-            return c
-    raise RuntimeError(f"No Close column found: {df.columns.tolist()}")
-
-# =======================
 # DATA LOADING
 # =======================
 def load_prices():
     print("[INFO] Downloading prices since", START_DATE)
 
-    gas_raw = yf.download(
-        SYMBOL_GAS,
-        start=START_DATE,
-        progress=False,
-        auto_adjust=False,
-    )
-    oil_raw = yf.download(
-        SYMBOL_OIL,
-        start=START_DATE,
-        progress=False,
-        auto_adjust=False,
-    )
+    gas = yf.download(SYMBOL_GAS, start=START_DATE, progress=False)
+    oil = yf.download(SYMBOL_OIL, start=START_DATE, progress=False)
 
-    gas = flatten_columns(gas_raw)
-    oil = flatten_columns(oil_raw)
+    gas = gas[["Close"]].rename(columns={"Close": "Gas_Close"})
+    oil = oil[["Close"]].rename(columns={"Close": "Oil_Close"})
 
-    gas = gas[[_find_close_column(gas)]].rename(columns=lambda _: "Gas_Close")
-    oil = oil[[_find_close_column(oil)]].rename(columns=lambda _: "Oil_Close")
-
-    df = gas.join(oil, how="inner").sort_index().dropna()
+    df = gas.join(oil, how="inner")
+    df = df.sort_index().dropna()
 
     print("[INFO] loaded price dataframe:", df.shape)
     return df
@@ -85,10 +56,10 @@ def load_prices():
 # =======================
 # FEATURES
 # =======================
-def build_features(df: pd.DataFrame) -> pd.DataFrame:
+def build_features(df):
     df = df.copy()
 
-    # Returns
+    # --- Returns ---
     df["Gas_Return"] = df["Gas_Close"].pct_change()
     df["Oil_Return"] = df["Oil_Close"].pct_change()
 
@@ -96,45 +67,47 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         df[f"Gas_Return_lag{l}"] = df["Gas_Return"].shift(l)
         df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
 
-    # =======================
-    # EIA STORAGE SURPRISE (SAFE)
-    # =======================
-    try:
-        if hasattr(fetch_eia_storage, "load_storage_data"):
-            storage = fetch_eia_storage.load_storage_data()
-        elif hasattr(fetch_eia_storage, "get_storage_data"):
-            storage = fetch_eia_storage.get_storage_data()
-        else:
-            raise AttributeError(
-                "No suitable storage loader found in fetch_eia_storage.py"
-            )
+    # --- Storage Surprise (OPTIONAL) ---
+    df["Storage_Surprise"] = 0.0
 
-        storage = storage.sort_values("Date")
+    if fetch_eia_storage is not None:
+        try:
+            if hasattr(fetch_eia_storage, "load_storage_data"):
+                storage = fetch_eia_storage.load_storage_data()
+            elif hasattr(fetch_eia_storage, "load_eia_storage"):
+                storage = fetch_eia_storage.load_eia_storage()
+            else:
+                raise RuntimeError("No suitable storage loader found")
 
-        storage["Storage_Change"] = storage["Storage"].diff()
-        storage["Storage_Exp"] = storage["Storage_Change"].rolling(4).mean()
-        storage["Storage_Surprise"] = (
-            storage["Storage_Change"] - storage["Storage_Exp"]
-        ).shift(1)
+            storage = storage.sort_values("Date")
+            storage["Storage_Change"] = storage["Storage"].diff()
+            storage["Storage_Exp"] = storage["Storage_Change"].rolling(4).mean()
+            storage["Storage_Surprise"] = (
+                storage["Storage_Change"] - storage["Storage_Exp"]
+            ).shift(1)
 
-        df = df.merge(
-            storage[["Date", "Storage_Surprise"]],
-            left_index=True,
-            right_on="Date",
-            how="left",
-        ).drop(columns=["Date"])
+            df = df.merge(
+                storage[["Date", "Storage_Surprise"]],
+                left_index=True,
+                right_on="Date",
+                how="left"
+            ).drop(columns=["Date"])
 
-        df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
+            df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
+            print("[INFO] Storage Surprise loaded")
 
-        print("[INFO] Storage Surprise added")
+        except Exception as e:
+            print("[WARN] Storage data unavailable:", str(e))
+            df["Storage_Surprise"] = 0.0
 
-    except Exception as e:
-        print("[WARN] Storage data unavailable:", e)
-        df["Storage_Surprise"] = 0.0
+    # --- Target (NO LEAK) ---
+    df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
 
+    df = df.dropna()
+    return df
 
 # =======================
-# MODEL TRAINING
+# MODEL
 # =======================
 def train_model(df, features):
     X = df[features]
@@ -172,7 +145,6 @@ Run time: {now}
 Data date: {last_date}
 
 Model CV Accuracy: {acc_mean:.2%} ± {acc_std:.2%}
-
 Probability price goes UP: {prob_up:.2%}
 Signal: {signal}
 ===================================
@@ -188,14 +160,14 @@ def main():
     df = load_prices()
     df = build_features(df)
 
-    if len(df) < 100:
-        print("[WARN] Not enough data – skipping forecast")
+    if df is None or len(df) < 200:
+        print("[WARN] Not enough usable data")
         return
 
-    features = [
-        c for c in df.columns
-        if c.startswith(("Gas_Return_lag", "Oil_Return_lag"))
-    ] + ["Storage_Surprise"]
+    features = (
+        [c for c in df.columns if c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
+        + ["Storage_Surprise"]
+    )
 
     model, acc_mean, acc_std = train_model(df, features)
 
