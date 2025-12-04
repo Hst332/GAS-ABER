@@ -18,6 +18,12 @@ try:
     import fetch_eia_storage
 except Exception:
     fetch_eia_storage = None
+    
+def flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if isinstance(df.columns, pd.MultiIndex):
+        df = df.copy()
+        df.columns = [c[0] for c in df.columns]  # nimmt "Close" aus ('Close','NG=F')
+    return df
 
 # =======================
 # SAFETY
@@ -41,8 +47,15 @@ PROB_THRESHOLD = 0.5
 def load_prices():
     print("[INFO] Downloading prices since", START_DATE)
 
-    gas = yf.download(SYMBOL_GAS, start=START_DATE, progress=False)
-    oil = yf.download(SYMBOL_OIL, start=START_DATE, progress=False)
+    gas = yf.download(
+        SYMBOL_GAS, start=START_DATE, progress=False, auto_adjust=True
+    )
+    oil = yf.download(
+        SYMBOL_OIL, start=START_DATE, progress=False, auto_adjust=True
+    )
+
+    gas = flatten_columns(gas)
+    oil = flatten_columns(oil)
 
     gas = gas[["Close"]].rename(columns={"Close": "Gas_Close"})
     oil = oil[["Close"]].rename(columns={"Close": "Oil_Close"})
@@ -52,6 +65,7 @@ def load_prices():
 
     print("[INFO] loaded price dataframe:", df.shape)
     return df
+
 
 # =======================
 # FEATURES
