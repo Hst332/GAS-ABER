@@ -1,6 +1,7 @@
 # ===================================================================
 # gas_price_forecast.py
-# Stable / Online / CI-safe / Storage-Surprise clean
+# Stable / Online / CI-safe
+# Adds: Storage Surprise + LNG Feedgas Surprise (both leak-free & scaled)
 # ===================================================================
 
 import numpy as np
@@ -12,12 +13,17 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
 
 # =======================
-# OPTIONAL EIA STORAGE (SAFE)
+# OPTIONAL EXTERNAL LOADERS (SAFE)
 # =======================
 try:
     import fetch_eia_storage
 except Exception:
     fetch_eia_storage = None
+
+try:
+    import fetch_lng_feedgas
+except Exception:
+    fetch_lng_feedgas = None
 
 # =======================
 # SAFETY
@@ -84,9 +90,9 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         df[f"Gas_Return_lag{l}"] = df["Gas_Return"].shift(l)
         df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
 
-    # ==================================
-    # STORAGE SURPRISE (OPTIONAL / SAFE)
-    # ==================================
+    # ============================
+    # STORAGE SURPRISE (OPTIONAL)
+    # ============================
     df["Storage_Surprise_Z"] = 0.0
 
     if fetch_eia_storage is not None:
@@ -98,40 +104,69 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
             else:
                 raise RuntimeError("No suitable storage loader found")
 
-            storage = storage.sort_values("Date")
+            # Expect storage: DataFrame with Date (datetime) and Storage numeric column
+            storage = storage.sort_values("Date").reset_index(drop=True)
             storage["Storage_Change"] = storage["Storage"].diff()
-            storage["Storage_Exp"] = storage["Storage_Change"].rolling(4).mean()
+            storage["Storage_Exp"] = storage["Storage_Change"].rolling(4).mean()  # 4 periods expectation
+            storage["Storage_Surprise"] = (storage["Storage_Change"] - storage["Storage_Exp"]).shift(1)
 
-            storage["Storage_Surprise"] = (
-                storage["Storage_Change"] - storage["Storage_Exp"]
-            ).shift(1)
-
+            # merge to main df (left index = prices index)
             df = df.merge(
                 storage[["Date", "Storage_Surprise"]],
-                left_index=True,
-                right_on="Date",
-                how="left"
+                left_index=True, right_on="Date", how="left"
             ).drop(columns=["Date"])
-
             df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
 
-            # --- Z-Score scaling (NO LEAK) ---
+            # z-score scale using 52-period rolling of surprises (avoid future leak)
             roll = df["Storage_Surprise"].rolling(52)
-            df["Storage_Surprise_Z"] = (
-                (df["Storage_Surprise"] - roll.mean()) / roll.std()
-            ).shift(1)
-
-            df["Storage_Surprise_Z"] = (
-                df["Storage_Surprise_Z"]
-                .replace([np.inf, -np.inf], 0.0)
-                .fillna(0.0)
-            )
+            df["Storage_Surprise_Z"] = ((df["Storage_Surprise"] - roll.mean()) / roll.std()).shift(1)
+            df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].replace([np.inf, -np.inf], 0.0).fillna(0.0)
 
             print("[INFO] Storage Surprise loaded & scaled")
 
         except Exception as e:
             print("[WARN] Storage data unavailable:", str(e))
             df["Storage_Surprise_Z"] = 0.0
+
+    # =================================
+    # LNG Feedgas Surprise (OPTIONAL)
+    # =================================
+    df["LNG_Feedgas_Surprise_Z"] = 0.0
+
+    if fetch_lng_feedgas is not None:
+        try:
+            # expected loader returns DataFrame with Date and Feedgas (numeric)
+            if hasattr(fetch_lng_feedgas, "load_lng_feedgas"):
+                feedgas = fetch_lng_feedgas.load_lng_feedgas()
+            elif hasattr(fetch_lng_feedgas, "load_feedgas"):
+                feedgas = fetch_lng_feedgas.load_feedgas()
+            else:
+                raise RuntimeError("No suitable LNG feedgas loader found")
+
+            feedgas = feedgas.sort_values("Date").reset_index(drop=True)
+            # compute change (use diff), expectation (rolling mean of last 4 periods),
+            # surprise = actual - expected shifted by 1 to avoid leak
+            feedgas["Feedgas_Change"] = feedgas["Feedgas"].diff()
+            feedgas["Feedgas_Exp"] = feedgas["Feedgas_Change"].rolling(4).mean()
+            feedgas["Feedgas_Surprise"] = (feedgas["Feedgas_Change"] - feedgas["Feedgas_Exp"]).shift(1)
+
+            # Merge into df
+            df = df.merge(
+                feedgas[["Date", "Feedgas_Surprise"]],
+                left_index=True, right_on="Date", how="left"
+            ).drop(columns=["Date"])
+            df["Feedgas_Surprise"] = df["Feedgas_Surprise"].fillna(0.0)
+
+            # Scale by rolling 52 (Z score) and shift to avoid leak
+            roll_f = df["Feedgas_Surprise"].rolling(52)
+            df["LNG_Feedgas_Surprise_Z"] = ((df["Feedgas_Surprise"] - roll_f.mean()) / roll_f.std()).shift(1)
+            df["LNG_Feedgas_Surprise_Z"] = df["LNG_Feedgas_Surprise_Z"].replace([np.inf, -np.inf], 0.0).fillna(0.0)
+
+            print("[INFO] LNG Feedgas Surprise loaded & scaled")
+
+        except Exception as e:
+            print("[WARN] LNG feedgas unavailable:", str(e))
+            df["LNG_Feedgas_Surprise_Z"] = 0.0
 
     # --- Target (NEXT DAY, NO LEAK) ---
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
@@ -142,7 +177,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 # =======================
 # MODEL
 # =======================
-def train_model(df: pd.DataFrame, features: list[str]):
+def train_model(df: pd.DataFrame, features: list):
     X = df[features]
     y = df["Target"]
 
@@ -198,9 +233,8 @@ def main():
         return
 
     features = (
-        [c for c in df.columns if isinstance(c, str)
-         and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
-        + ["Storage_Surprise_Z"]
+        [c for c in df.columns if isinstance(c, str) and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
+        + ["Storage_Surprise_Z", "LNG_Feedgas_Surprise_Z"]
     )
 
     model, acc_mean, acc_std = train_model(df, features)
