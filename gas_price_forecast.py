@@ -26,19 +26,6 @@ def flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
     
 # =======================
-# SCALE STORAGE SURPRISE (NO LEAK)
-# =======================
-roll = df["Storage_Surprise"].rolling(52)
-
-df["Storage_Surprise_Z"] = (
-    (df["Storage_Surprise"] - roll.mean()) / roll.std()
-).shift(1)
-
-df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].replace(
-    [np.inf, -np.inf], 0.0
-).fillna(0.0)
-
-# =======================
 # SAFETY
 # =======================
 assert callable(str), "FATAL: built-in 'str' overwritten"
@@ -121,6 +108,19 @@ def build_features(df):
             ).drop(columns=["Date"])
 
             df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
+            # =======================
+    # SCALE STORAGE SURPRISE (NO LEAK)
+    # =======================
+            roll = df["Storage_Surprise"].rolling(52)
+        
+                df["Storage_Surprise_Z"] = (
+                (df["Storage_Surprise"] - roll.mean()) / roll.std()
+            ).shift(1)
+        
+            df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].replace(
+                [np.inf, -np.inf], 0.0
+            ).fillna(0.0)
+
             print("[INFO] Storage Surprise loaded")
 
         except Exception as e:
