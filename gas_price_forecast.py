@@ -43,6 +43,14 @@ def flatten_columns(df):
         df = df.copy()
         df.columns = [c[0] for c in df.columns]
     return df
+    
+def print_feature_importance(model, features, top_n=20):
+    importances = model.feature_importances_
+    order = np.argsort(importances)[::-1]
+
+    print("\n[INFO] Feature importance (RandomForest):")
+    for i in order[:top_n]:
+        print(f"{features[i]:<30} {importances[i]:.4f}")
 
 # =======================
 # DATA
