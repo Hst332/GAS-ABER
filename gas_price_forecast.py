@@ -168,6 +168,28 @@ def train_model(df, features):
 
     model.fit(X, y)
     return model
+from sklearn.metrics import accuracy_score
+
+def permutation_importance_ts(model, df, features, test_size=250):
+    """
+    Permutation importance on last test_size observations (time-safe)
+    """
+    df_test = df.iloc[-test_size:].copy()
+    X = df_test[features]
+    y = df_test["Target"]
+
+    baseline = accuracy_score(y, model.predict(X))
+    scores = {}
+
+    rng = np.random.default_rng(42)
+
+    for f in features:
+        X_perm = X.copy()
+        X_perm[f] = rng.permutation(X_perm[f].values)
+        acc = accuracy_score(y, model.predict(X_perm))
+        scores[f] = baseline - acc
+
+    return scores
 
 # =======================
 # MAIN
@@ -183,6 +205,11 @@ def main():
 
     model = train_model(df, features)
     prob_up = model.predict_proba(df.iloc[-1:][features])[0][1]
+    perm = permutation_importance_ts(model, df, features)
+
+    print("\n[INFO] Permutation importance (accuracy drop):")
+    for f, v in sorted(perm.items(), key=lambda x: x[1], reverse=True):
+    print(f"{f:<30} {v:+.4f}")
 
     signal = "UP" if prob_up > PROB_THRESHOLD else "DOWN"
     print("Probability UP:", round(prob_up, 3), "| Signal:", signal)
