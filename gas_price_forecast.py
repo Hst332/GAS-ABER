@@ -201,11 +201,11 @@ if fetch_eia_storage is not None:
             print("[WARN] LNG feedgas unavailable:", str(e))
             df["LNG_Feedgas_Surprise_Z"] = 0.0
 
-    # --- Target (NEXT DAY, NO LEAK) ---
-    df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
-    df = df.dropna()
+        # --- Target (NEXT DAY, NO LEAK) ---
+        df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
+        df = df.dropna()
 
-    return df
+        return df
 
 # =======================
 # MODEL
