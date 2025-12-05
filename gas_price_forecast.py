@@ -205,6 +205,7 @@ if fetch_eia_storage is not None:
             df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
 
             df = df.dropna()
+            
         return df
 
 # =======================
