@@ -207,8 +207,8 @@ def main():
         + ["Storage_Surprise_Z", "LNG_Feedgas_Surprise_Z"]
     )
 
-    # Train model
-    model, acc_mean, acc_std = train_model(df, features)
+    # Train model (current version returns ONLY model)
+    model = train_model(df, features)
 
     # Forecast
     last_row = df.iloc[-1:]
@@ -218,18 +218,4 @@ def main():
     perm = permutation_importance_ts(model, df, features)
 
     print("\n[INFO] Permutation importance (accuracy drop):")
-    for f, v in sorted(perm.items(), key=lambda x: x[1], reverse=True):
-        print(f"{f:<30} {v:+.4f}")
-
-    signal = "UP" if prob_up > PROB_THRESHOLD else "DOWN"
-
-    print(
-        "\n[RESULT]",
-        f"Probability UP: {prob_up:.3f}",
-        f"| Signal: {signal}",
-        f"| CV Acc: {acc_mean:.2%} ± {acc_std:.2%}",
-    )
-
-
-if __name__ == "__main__":
-    main()
+    for f, v in sorted(perm.items(), key=lambda x: x
