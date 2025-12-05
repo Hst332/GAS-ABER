@@ -176,7 +176,12 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
             df["Feedgas_Surprise"] = df["Feedgas_Surprise"].fillna(0.0)
 
             # Scale by rolling 52 (Z score) and shift to avoid leak
-            roll_f = df["Feedgas_Surprise"].rolling(52)
+            roll = storage["Storage_Surprise"].rolling(52)
+            storage["Storage_Surprise_Z"] = (
+            (storage["Storage_Surprise"] - roll.median())
+            / (roll.quantile(0.75) - roll.quantile(0.25))
+            ).shift(1)
+
             df["LNG_Feedgas_Surprise_Z"] = ((df["Feedgas_Surprise"] - roll_f.mean()) / roll_f.std()).shift(1)
             df["LNG_Feedgas_Surprise_Z"] = df["LNG_Feedgas_Surprise_Z"].replace([np.inf, -np.inf], 0.0).fillna(0.0)
 
