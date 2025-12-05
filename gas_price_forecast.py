@@ -252,6 +252,7 @@ def main():
     )
 
     model, acc_mean, acc_std = train_model(df, features)
+    print_feature_importance(model, features)
 
     last_row = df.iloc[-1:]
     prob_up = model.predict_proba(last_row[features])[0][1]
