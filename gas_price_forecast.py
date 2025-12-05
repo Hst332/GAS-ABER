@@ -77,6 +77,20 @@ def load_prices():
     return df
 
 # =======================
+# FEATURE IMPORTANCE
+# =======================
+def print_feature_importance(model, features):
+    print("\n[INFO] Feature importance (descending):")
+
+    importances = model.feature_importances_
+    order = np.argsort(importances)[::-1]
+
+    for i in order:
+        print(
+            f"  {features[i]:<25} : {importances[i]:.4f}"
+        )
+
+# =======================
 # FEATURE ENGINEERING
 # =======================
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
