@@ -121,7 +121,11 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
             # Expect storage: DataFrame with Date (datetime) and Storage numeric column
             storage = storage.sort_values("Date").reset_index(drop=True)
             storage["Storage_Change"] = storage["Storage"].diff()
-            storage["Storage_Exp"] = storage["Storage_Change"].rolling(4).mean()  # 4 periods expectation
+            storage["Exp_4w"] = storage["Storage_Change"].rolling(4).mean()
+            storage["Exp_8w"] = storage["Storage_Change"].rolling(8).mean()
+
+            storage["Storage_Exp"] = 0.5 * storage["Exp_4w"] + 0.5 * storage["Exp_8w"]
+
             storage["Storage_Surprise"] = (storage["Storage_Change"] - storage["Storage_Exp"]).shift(1)
 
             # merge to main df (left index = prices index)
