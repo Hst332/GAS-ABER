@@ -198,21 +198,38 @@ def main():
     df = load_prices()
     df = build_features(df)
 
+    if df is None or len(df) < 200:
+        print("[WARN] Not enough data to train model")
+        return
+
     features = (
-        [c for c in df.columns if c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
+        [c for c in df.columns if isinstance(c, str) and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
         + ["Storage_Surprise_Z", "LNG_Feedgas_Surprise_Z"]
     )
 
-    model = train_model(df, features)
-    prob_up = model.predict_proba(df.iloc[-1:][features])[0][1]
+    # Train model
+    model, acc_mean, acc_std = train_model(df, features)
+
+    # Forecast
+    last_row = df.iloc[-1:]
+    prob_up = model.predict_proba(last_row[features])[0][1]
+
+    # Permutation importance
     perm = permutation_importance_ts(model, df, features)
 
     print("\n[INFO] Permutation importance (accuracy drop):")
     for f, v in sorted(perm.items(), key=lambda x: x[1], reverse=True):
-    print(f"{f:<30} {v:+.4f}")
+        print(f"{f:<30} {v:+.4f}")
 
     signal = "UP" if prob_up > PROB_THRESHOLD else "DOWN"
-    print("Probability UP:", round(prob_up, 3), "| Signal:", signal)
+
+    print(
+        "\n[RESULT]",
+        f"Probability UP: {prob_up:.3f}",
+        f"| Signal: {signal}",
+        f"| CV Acc: {acc_mean:.2%} ± {acc_std:.2%}",
+    )
+
 
 if __name__ == "__main__":
     main()
