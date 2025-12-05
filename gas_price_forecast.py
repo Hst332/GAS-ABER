@@ -107,44 +107,54 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     # ============================
     # STORAGE SURPRISE (OPTIONAL)
     # ============================
-    df["Storage_Surprise_Z"] = 0.0
+  # --- Storage Surprise (REFINED, NO LEAK) ---
+df["Storage_Surprise_Z"] = 0.0
 
-    if fetch_eia_storage is not None:
-        try:
-            if hasattr(fetch_eia_storage, "load_storage_data"):
-                storage = fetch_eia_storage.load_storage_data()
-            elif hasattr(fetch_eia_storage, "load_eia_storage"):
-                storage = fetch_eia_storage.load_eia_storage()
-            else:
-                raise RuntimeError("No suitable storage loader found")
+if fetch_eia_storage is not None:
+    try:
+        if hasattr(fetch_eia_storage, "load_storage_data"):
+            storage = fetch_eia_storage.load_storage_data()
+        elif hasattr(fetch_eia_storage, "load_eia_storage"):
+            storage = fetch_eia_storage.load_eia_storage()
+        else:
+            raise RuntimeError("No suitable storage loader found")
 
-            # Expect storage: DataFrame with Date (datetime) and Storage numeric column
-            storage = storage.sort_values("Date").reset_index(drop=True)
-            storage["Storage_Change"] = storage["Storage"].diff()
-            storage["Exp_4w"] = storage["Storage_Change"].rolling(4).mean()
-            storage["Exp_8w"] = storage["Storage_Change"].rolling(8).mean()
+        storage = storage.sort_values("Date")
 
-            storage["Storage_Exp"] = 0.5 * storage["Exp_4w"] + 0.5 * storage["Exp_8w"]
+        storage["Storage_Change"] = storage["Storage"].diff()
 
-            storage["Storage_Surprise"] = (storage["Storage_Change"] - storage["Storage_Exp"]).shift(1)
+        storage["Exp_4w"] = storage["Storage_Change"].rolling(4).mean()
+        storage["Exp_8w"] = storage["Storage_Change"].rolling(8).mean()
+        storage["Storage_Exp"] = 0.5 * storage["Exp_4w"] + 0.5 * storage["Exp_8w"]
 
-            # merge to main df (left index = prices index)
-            df = df.merge(
-                storage[["Date", "Storage_Surprise"]],
-                left_index=True, right_on="Date", how="left"
-            ).drop(columns=["Date"])
-            df["Storage_Surprise"] = df["Storage_Surprise"].fillna(0.0)
+        storage["Storage_Surprise"] = (
+            storage["Storage_Change"] - storage["Storage_Exp"]
+        ).shift(1)
 
-            # z-score scale using 52-period rolling of surprises (avoid future leak)
-            roll = df["Storage_Surprise"].rolling(52)
-            df["Storage_Surprise_Z"] = ((df["Storage_Surprise"] - roll.mean()) / roll.std()).shift(1)
-            df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].replace([np.inf, -np.inf], 0.0).fillna(0.0)
+        roll = storage["Storage_Surprise"].rolling(52)
+        storage["Storage_Surprise_Z"] = (
+            (storage["Storage_Surprise"] - roll.median())
+            / (roll.quantile(0.75) - roll.quantile(0.25))
+        ).shift(1)
 
-            print("[INFO] Storage Surprise loaded & scaled")
+        df = df.merge(
+            storage[["Date", "Storage_Surprise_Z"]],
+            left_index=True,
+            right_on="Date",
+            how="left"
+        ).drop(columns=["Date"])
 
-        except Exception as e:
-            print("[WARN] Storage data unavailable:", str(e))
-            df["Storage_Surprise_Z"] = 0.0
+        df["Storage_Surprise_Z"] = (
+            df["Storage_Surprise_Z"]
+            .replace([np.inf, -np.inf], 0.0)
+            .fillna(0.0)
+        )
+
+        print("[INFO] Refined Storage Surprise loaded")
+
+    except Exception as e:
+        print("[WARN] Storage data unavailable:", str(e))
+        df["Storage_Surprise_Z"] = 0.0
 
     # =================================
     # LNG Feedgas Surprise (OPTIONAL)
