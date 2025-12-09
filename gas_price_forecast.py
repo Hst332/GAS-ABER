@@ -60,12 +60,23 @@ def load_prices():
 def build_features(df):
     df = df.copy()
 
+    # --- Returns ---
     df["Gas_Return"] = df["Gas_Close"].pct_change()
     df["Oil_Return"] = df["Oil_Close"].pct_change()
 
     for l in range(1, 6):
         df[f"Gas_Return_lag{l}"] = df["Gas_Return"].shift(l)
         df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
+
+    # >>> ADDED: TREND REGIME (NO LEAK)
+    df["Gas_MA_50"] = df["Gas_Close"].rolling(50).mean()
+    df["Gas_MA_200"] = df["Gas_Close"].rolling(200).mean()
+    df["Trend_Regime"] = (df["Gas_MA_50"] > df["Gas_MA_200"]).astype(int)
+
+    # >>> ADDED: VOLATILITY REGIME
+    df["Gas_Vol_20"] = df["Gas_Return"].rolling(20).std()
+    df["Gas_Vol_252"] = df["Gas_Return"].rolling(252).std()
+    df["High_Vol_Regime"] = (df["Gas_Vol_20"] > df["Gas_Vol_252"]).astype(int)
 
     # ---------- Storage Surprise ----------
     df["Storage_Surprise_Z"] = 0.0
@@ -120,6 +131,7 @@ def build_features(df):
         except Exception as e:
             print("[WARN] LNG Feedgas unavailable:", e)
 
+    # --- Target ---
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
     return df.dropna()
 
@@ -137,96 +149,47 @@ def train_model(df, features):
     return model
 
 # =======================
-# ROLLING PERMUTATION IMPORTANCE
-# =======================
-def rolling_permutation_importance_ts(df, features, window=500, step=25):
-    rows = []
-
-    for start in range(0, len(df) - window, step):
-        train = df.iloc[start : start + window]
-        X, y = train[features], train["Target"]
-
-        model = RandomForestClassifier(
-            n_estimators=300, max_depth=6, min_samples_leaf=20, random_state=42
-        ).fit(X, y)
-
-        baseline = model.score(X, y)
-        row = {"Date": train.index[-1], "_baseline": baseline}
-
-        for f in features:
-            Xp = X.copy()
-            Xp[f] = np.random.permutation(Xp[f].values)
-            row[f] = baseline - model.score(Xp, y)
-
-        rows.append(row)
-
-    return pd.DataFrame(rows).set_index("Date")
-
-# =======================
-# FEATURE SELECTION
-# =======================
-def select_stable_features(roll_imp, min_presence=0.6, min_median=0.001):
-    keep = []
-    for f in roll_imp.columns:
-        if f == "_baseline":
-            continue
-        s = roll_imp[f].dropna()
-        if (s > 0).mean() >= min_presence and s.median() >= min_median:
-            keep.append(f)
-    return keep
-
-# =======================
-# PERMUTATION IMPORTANCE (FINAL)
-# =======================
-def permutation_importance_ts(model, df, features, test_size=250):
-    test = df.iloc[-test_size:]
-    X, y = test[features], test["Target"]
-    baseline = accuracy_score(y, model.predict(X))
-
-    out = {}
-    for f in features:
-        Xp = X.copy()
-        Xp[f] = np.random.permutation(Xp[f].values)
-        out[f] = baseline - accuracy_score(y, model.predict(Xp))
-    return out
-
-# =======================
 # MAIN
 # =======================
 def main():
     df = build_features(load_prices())
 
-    if len(df) < 200:
+    if len(df) < 300:
         print("[WARN] Not enough data")
         return
 
     features = [
         c for c in df.columns
         if c.startswith(("Gas_Return_lag", "Oil_Return_lag"))
-    ] + ["Storage_Surprise_Z", "LNG_Feedgas_Surprise_Z"]
+    ] + [
+        "Storage_Surprise_Z",
+        "LNG_Feedgas_Surprise_Z",
+        "Trend_Regime",          # >>> ADDED
+        "High_Vol_Regime",       # >>> ADDED
+    ]
 
-    roll_imp = rolling_permutation_importance_ts(df, features)
-    stable = select_stable_features(roll_imp)
+    model = train_model(df, features)
 
-    if not stable:
-        print("[WARN] No stable features – using all")
-        stable = features
+    last = df.iloc[-1:]
+    prob_up = model.predict_proba(last[features])[0][1]
 
-    print("\n[INFO] Stable features:")
-    for f in stable:
-        print(" ", f)
+    # >>> ADDED: REGIME FILTER (SAFE)
+    trend_ok = last["Trend_Regime"].iloc[0] == 1
+    vol_ok = last["High_Vol_Regime"].iloc[0] == 0
 
-    model = train_model(df, stable)
-    prob_up = model.predict_proba(df.iloc[-1:][stable])[0][1]
+    signal = (
+        "UP"
+        if prob_up > PROB_THRESHOLD and trend_ok and vol_ok
+        else "DOWN"
+    )
 
-    perm = permutation_importance_ts(model, df, stable)
-    print("\n[INFO] Permutation importance:")
-    for f, v in sorted(perm.items(), key=lambda x: x[1], reverse=True):
-        print(f"{f:<30} {v:+.4f}")
-
-    print("\n[RESULT]",
-          f"Probability UP: {prob_up:.3f}",
-          "| Signal:", "UP" if prob_up > PROB_THRESHOLD else "DOWN")
+    print(
+        "\n[RESULT]",
+        f"Probability UP: {prob_up:.3f}",
+        "| Trend OK:", trend_ok,
+        "| Vol OK:", vol_ok,
+        "| Signal:", signal,
+    )
 
 # =======================
 # ENTRY
