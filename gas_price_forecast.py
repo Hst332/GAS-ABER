@@ -207,15 +207,17 @@ def main():
         + ["Storage_Surprise_Z", "LNG_Feedgas_Surprise_Z"]
     )
 
-    # Train model (current version returns ONLY model)
-    model = train_model(df, features)
+  # Train model (current version returns ONLY model)
+model = train_model(df, features)
 
-    # Forecast
-    last_row = df.iloc[-1:]
-    prob_up = model.predict_proba(last_row[features])[0][1]
+# Forecast
+last_row = df.iloc[-1:]
+prob_up = model.predict_proba(last_row[features])[0][1]
 
-    # Permutation importance
-    perm = permutation_importance_ts(model, df, features)
+# Permutation importance
+perm = permutation_importance_ts(model, df, features)
 
-    print("\n[INFO] Permutation importance (accuracy drop):")
-    for f, v in sorted(perm.items(), key=lambda x: x
+print("\n[INFO] Permutation importance (accuracy drop):")
+for f, v in sorted(perm.items(), key=lambda x: x[1], reverse=True):
+    print(f"{f:<30} {v:+.4f}")
+
