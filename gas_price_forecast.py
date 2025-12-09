@@ -233,6 +233,20 @@ def main():
         "| Vol OK:", vol_ok,
         "| Signal:", signal,
     )
+    
+    # =======================
+    # WALK-FORWARD BACKTEST
+    # =======================
+    bt = walk_forward_backtest(df, features)
+
+    total_return = bt["Equity"].iloc[-1] - 1
+    hit_rate = (bt["PnL"] > 0).mean()
+    max_dd = (bt["Equity"] / bt["Equity"].cummax() - 1).min()
+
+    print("\n[BACKTEST]")
+    print(f"Total return: {total_return:.2%}")
+    print(f"Hit rate    : {hit_rate:.2%}")
+    print(f"Max drawdown: {max_dd:.2%}")
 
 # =======================
 # ENTRY
