@@ -169,6 +169,51 @@ def train_model(df, features):
     model.fit(X, y)
     return model
 from sklearn.metrics import accuracy_score
+def rolling_permutation_importance_ts(
+    df: pd.DataFrame,
+    features: list,
+    window: int = 500,
+    step: int = 20,
+):
+    """
+    Rolling permutation importance for time series.
+    Returns: DataFrame indexed by end-date with accuracy drop per feature.
+    """
+    results = []
+
+    for start in range(0, len(df) - window, step):
+        end = start + window
+        train = df.iloc[start:end]
+
+        X = train[features]
+        y = train["Target"]
+
+        model = RandomForestClassifier(
+            n_estimators=300,
+            max_depth=6,
+            min_samples_leaf=20,
+            random_state=42,
+        )
+        model.fit(X, y)
+
+        # baseline accuracy (in-sample, deterministic)
+        baseline = model.score(X, y)
+
+        row = {
+            "Date": train.index[-1],
+            "_baseline": baseline,
+        }
+
+        for f in features:
+            X_perm = X.copy()
+            X_perm[f] = np.random.permutation(X_perm[f].values)
+            score = model.score(X_perm, y)
+            row[f] = baseline - score  # accuracy drop
+
+        results.append(row)
+
+    df_imp = pd.DataFrame(results).set_index("Date")
+    return df_imp
 
 def permutation_importance_ts(model, df, features, test_size=250):
     """
