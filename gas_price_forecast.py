@@ -360,6 +360,24 @@ def main():
     # Permutation importance
     perm = permutation_importance_ts(model, df, features)
 
+    # =======================
+    # Rolling Feature Selection
+    # =======================
+    stable_features = select_stable_features(
+        roll_imp,
+        min_presence=0.6,   # >= 60% der Zeit relevant
+        min_median=0.001,   # mind. messbarer Accuracy-Impact
+    )
+
+    print("\n[INFO] Selected stable features:")
+    for f in stable_features:
+        print(" ", f)
+
+    if not stable_features:
+        print("[WARN] No stable features found – fallback to all")
+        stable_features = features
+
+
     print("\n[INFO] Permutation importance (accuracy drop):")
     for f, v in sorted(perm.items(), key=lambda x: x[1], reverse=True):
         print(f"{f:<30} {v:+.4f}")
