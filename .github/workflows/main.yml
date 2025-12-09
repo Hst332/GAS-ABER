@@ -1,28 +1,28 @@
-# =======================
-# MAIN
-# =======================
-def main():
-    df = load_prices()
-    df = build_features(df)
+name: Gas Price Forecast CI
 
-    if df is None or len(df) < 200:
-        print("[WARN] Not enough data to train model")
-        return
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
 
-    features = (
-        [c for c in df.columns if isinstance(c, str) and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
-        + ["Storage_Surprise_Z", "LNG_Feedgas_Surprise_Z"]
-    )
+jobs:
+  run-forecast:
+    runs-on: ubuntu-latest
 
-    # Train model (current version returns ONLY model)
-    model = train_model(df, features)
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-    # Forecast
-    last_row = df.iloc[-1:]
-    prob_up = model.predict_proba(last_row[features])[0][1]
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    # Permutation importance
-    perm = permutation_importance_ts(model, df, features)
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas scikit-learn numpy requests
 
-    print("\n[INFO] Permutation importance (accuracy drop):")
-    for f, v in sorted(perm.items(), key=lambda x: x
+      - name: Run forecast
+        run: |
+          python gas_price_forecast.py
