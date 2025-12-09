@@ -147,6 +147,49 @@ def train_model(df, features):
     )
     model.fit(df[features], df["Target"])
     return model
+# =======================
+# WALK-FORWARD BACKTEST
+# =======================
+def walk_forward_backtest(
+    df: pd.DataFrame,
+    features: list,
+    train_window: int = 750,
+):
+    """
+    True walk-forward backtest (1-step ahead).
+    Returns DataFrame with equity curve.
+    """
+    records = []
+
+    for t in range(train_window, len(df) - 1):
+        train = df.iloc[t - train_window : t]
+        test = df.iloc[t : t + 1]
+
+        model = train_model(train, features)
+
+        prob_up = model.predict_proba(test[features])[0][1]
+
+        # --- apply SAME regime rules ---
+        trend_ok = test["Trend_Regime"].iloc[0] == 1
+        vol_ok = test["High_Vol_Regime"].iloc[0] == 0
+
+        signal = int(prob_up > PROB_THRESHOLD and trend_ok and vol_ok)
+
+        ret = df["Gas_Return"].iloc[t + 1]
+        pnl = signal * ret
+
+        records.append(
+            {
+                "Date": df.index[t],
+                "Signal": signal,
+                "Return": ret,
+                "PnL": pnl,
+            }
+        )
+
+    res = pd.DataFrame(records).set_index("Date")
+    res["Equity"] = (1 + res["PnL"]).cumprod()
+    return res
 
 # =======================
 # MAIN
