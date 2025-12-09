@@ -33,6 +33,9 @@ SYMBOL_GAS = "NG=F"
 SYMBOL_OIL = "CL=F"
 PROB_THRESHOLD = 0.5
 
+MAX_DRAWDOWN = -0.12      # >>> ADDED (Kill-Switch)
+REENTRY_LEVEL = 0.95      # >>> ADDED (Re-Entry)
+
 # =======================
 # HELPERS
 # =======================
@@ -68,17 +71,17 @@ def build_features(df):
         df[f"Gas_Return_lag{l}"] = df["Gas_Return"].shift(l)
         df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
 
-    # >>> ADDED: TREND REGIME (NO LEAK)
+    # --- Trend regime ---
     df["Gas_MA_50"] = df["Gas_Close"].rolling(50).mean()
     df["Gas_MA_200"] = df["Gas_Close"].rolling(200).mean()
     df["Trend_Regime"] = (df["Gas_MA_50"] > df["Gas_MA_200"]).astype(int)
 
-    # >>> ADDED: VOLATILITY REGIME
+    # --- Volatility regime ---
     df["Gas_Vol_20"] = df["Gas_Return"].rolling(20).std()
     df["Gas_Vol_252"] = df["Gas_Return"].rolling(252).std()
     df["High_Vol_Regime"] = (df["Gas_Vol_20"] > df["Gas_Vol_252"]).astype(int)
 
-    # ---------- Storage Surprise ----------
+    # --- Storage Surprise ---
     df["Storage_Surprise_Z"] = 0.0
     if fetch_eia_storage is not None:
         try:
@@ -105,7 +108,7 @@ def build_features(df):
         except Exception as e:
             print("[WARN] Storage unavailable:", e)
 
-    # ---------- LNG Feedgas ----------
+    # --- LNG Feedgas ---
     df["LNG_Feedgas_Surprise_Z"] = 0.0
     if fetch_lng_feedgas is not None:
         try:
@@ -131,7 +134,6 @@ def build_features(df):
         except Exception as e:
             print("[WARN] LNG Feedgas unavailable:", e)
 
-    # --- Target ---
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
     return df.dropna()
 
@@ -147,36 +149,45 @@ def train_model(df, features):
     )
     model.fit(df[features], df["Target"])
     return model
+
 # =======================
 # WALK-FORWARD BACKTEST
 # =======================
-def walk_forward_backtest(
-    df: pd.DataFrame,
-    features: list,
-    train_window: int = 750,
-):
-    """
-    True walk-forward backtest (1-step ahead).
-    Returns DataFrame with equity curve.
-    """
+def walk_forward_backtest(df, features, train_window=750):
     records = []
+
+    equity = 1.0                     # >>> ADDED
+    peak = 1.0                       # >>> ADDED
+    trading_enabled = True           # >>> ADDED
 
     for t in range(train_window, len(df) - 1):
         train = df.iloc[t - train_window : t]
         test = df.iloc[t : t + 1]
 
         model = train_model(train, features)
-
         prob_up = model.predict_proba(test[features])[0][1]
 
-        # --- apply SAME regime rules ---
         trend_ok = test["Trend_Regime"].iloc[0] == 1
         vol_ok = test["High_Vol_Regime"].iloc[0] == 0
 
-        signal = int(prob_up > PROB_THRESHOLD and trend_ok and vol_ok)
+        signal = int(
+            trading_enabled
+            and prob_up > PROB_THRESHOLD
+            and trend_ok
+            and vol_ok
+        )                               # >>> MODIFIED
 
         ret = df["Gas_Return"].iloc[t + 1]
         pnl = signal * ret
+        equity *= (1 + pnl)            # >>> ADDED
+
+        peak = max(peak, equity)       # >>> ADDED
+        drawdown = equity / peak - 1   # >>> ADDED
+
+        if trading_enabled and drawdown <= MAX_DRAWDOWN:
+            trading_enabled = False    # >>> ADDED
+        elif not trading_enabled and equity >= peak * REENTRY_LEVEL:
+            trading_enabled = True     # >>> ADDED
 
         records.append(
             {
@@ -184,12 +195,12 @@ def walk_forward_backtest(
                 "Signal": signal,
                 "Return": ret,
                 "PnL": pnl,
+                "Equity": equity,          # >>> ADDED
+                "Trading": trading_enabled # >>> ADDED
             }
         )
 
-    res = pd.DataFrame(records).set_index("Date")
-    res["Equity"] = (1 + res["PnL"]).cumprod()
-    return res
+    return pd.DataFrame(records).set_index("Date")
 
 # =======================
 # MAIN
@@ -207,16 +218,14 @@ def main():
     ] + [
         "Storage_Surprise_Z",
         "LNG_Feedgas_Surprise_Z",
-        "Trend_Regime",          # >>> ADDED
-        "High_Vol_Regime",       # >>> ADDED
+        "Trend_Regime",
+        "High_Vol_Regime",
     ]
 
     model = train_model(df, features)
-
     last = df.iloc[-1:]
     prob_up = model.predict_proba(last[features])[0][1]
 
-    # >>> ADDED: REGIME FILTER (SAFE)
     trend_ok = last["Trend_Regime"].iloc[0] == 1
     vol_ok = last["High_Vol_Regime"].iloc[0] == 0
 
@@ -233,10 +242,7 @@ def main():
         "| Vol OK:", vol_ok,
         "| Signal:", signal,
     )
-    
-    # =======================
-    # WALK-FORWARD BACKTEST
-    # =======================
+
     bt = walk_forward_backtest(df, features)
 
     total_return = bt["Equity"].iloc[-1] - 1
