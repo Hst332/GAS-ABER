@@ -10,7 +10,7 @@ from datetime import datetime
 
 import yfinance as yf
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import TimeSeriesSplit
+from sklearn.metrics import accuracy_score
 
 # =======================
 # OPTIONAL LOADERS
@@ -29,8 +29,6 @@ except Exception:
 # CONFIG
 # =======================
 START_DATE = "2015-01-01"
-FORECAST_FILE = "forecast_output.txt"
-
 SYMBOL_GAS = "NG=F"
 SYMBOL_OIL = "CL=F"
 PROB_THRESHOLD = 0.5
@@ -43,14 +41,6 @@ def flatten_columns(df):
         df = df.copy()
         df.columns = [c[0] for c in df.columns]
     return df
-    
-def print_feature_importance(model, features, top_n=20):
-    importances = model.feature_importances_
-    order = np.argsort(importances)[::-1]
-
-    print("\n[INFO] Feature importance (RandomForest):")
-    for i in order[:top_n]:
-        print(f"{features[i]:<30} {importances[i]:.4f}")
 
 # =======================
 # DATA
@@ -62,16 +52,14 @@ def load_prices():
     gas = flatten_columns(gas)[["Close"]].rename(columns={"Close": "Gas_Close"})
     oil = flatten_columns(oil)[["Close"]].rename(columns={"Close": "Oil_Close"})
 
-    df = gas.join(oil, how="inner").dropna()
-    return df
+    return gas.join(oil, how="inner").dropna()
 
 # =======================
 # FEATURES
 # =======================
-def build_features(df: pd.DataFrame) -> pd.DataFrame:
+def build_features(df):
     df = df.copy()
 
-    # Returns
     df["Gas_Return"] = df["Gas_Close"].pct_change()
     df["Oil_Return"] = df["Oil_Close"].pct_change()
 
@@ -79,18 +67,11 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         df[f"Gas_Return_lag{l}"] = df["Gas_Return"].shift(l)
         df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
 
-    # ============================
-    # STORAGE SURPRISE
-    # ============================
+    # ---------- Storage Surprise ----------
     df["Storage_Surprise_Z"] = 0.0
-
     if fetch_eia_storage is not None:
         try:
-            if hasattr(fetch_eia_storage, "load_storage_data"):
-                storage = fetch_eia_storage.load_storage_data()
-            else:
-                raise RuntimeError("No storage loader")
-
+            storage = fetch_eia_storage.load_storage_data()
             storage = storage.sort_values("Date")
             storage["Change"] = storage["Storage"].diff()
             storage["Exp"] = storage["Change"].rolling(5).mean()
@@ -104,26 +85,20 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 
             df = df.merge(
                 storage[["Date", "Storage_Surprise_Z"]],
-                left_index=True, right_on="Date", how="left"
+                left_index=True,
+                right_on="Date",
+                how="left",
             ).drop(columns=["Date"])
 
             df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].fillna(0.0)
-
         except Exception as e:
             print("[WARN] Storage unavailable:", e)
 
-    # ============================
-    # LNG FEEDGAS SURPRISE
-    # ============================
+    # ---------- LNG Feedgas ----------
     df["LNG_Feedgas_Surprise_Z"] = 0.0
-
     if fetch_lng_feedgas is not None:
         try:
-            if hasattr(fetch_lng_feedgas, "load_lng_feedgas"):
-                feedgas = fetch_lng_feedgas.load_lng_feedgas()
-            else:
-                raise RuntimeError("No feedgas loader")
-
+            feedgas = fetch_lng_feedgas.load_lng_feedgas()
             feedgas = feedgas.sort_values("Date")
             feedgas["Change"] = feedgas["Feedgas"].diff()
             feedgas["Exp"] = feedgas["Change"].rolling(4).mean()
@@ -136,263 +111,125 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 
             df = df.merge(
                 feedgas[["Date", "LNG_Feedgas_Surprise_Z"]],
-                left_index=True, right_on="Date", how="left"
+                left_index=True,
+                right_on="Date",
+                how="left",
             ).drop(columns=["Date"])
 
             df["LNG_Feedgas_Surprise_Z"] = df["LNG_Feedgas_Surprise_Z"].fillna(0.0)
-
         except Exception as e:
             print("[WARN] LNG Feedgas unavailable:", e)
 
-    # ============================
-    # TARGET
-    # ============================
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
-    df = df.dropna()
-
-    return df
+    return df.dropna()
 
 # =======================
 # MODEL
 # =======================
 def train_model(df, features):
-    X = df[features]
-    y = df["Target"]
-
     model = RandomForestClassifier(
         n_estimators=300,
         max_depth=6,
         min_samples_leaf=20,
         random_state=42,
     )
-    
-    # =======================
-    # Rolling Permutation Importance
-    # =======================
-    roll_imp = rolling_permutation_importance_ts(
-        df,
-        features,
-        window=500,
-        step=25
-    )
-
-    print("\n[INFO] Rolling importance (last window):")
-    last = roll_imp.iloc[-1].drop("_baseline")
-    for f, v in last.sort_values(ascending=False).items():
-        print(f"{f:<30} {v:+.4f}")
-
-
-    model.fit(X, y)
+    model.fit(df[features], df["Target"])
     return model
-from sklearn.metrics import accuracy_score
-def rolling_permutation_importance_ts(
-    df: pd.DataFrame,
-    features: list,
-    window: int = 500,
-    step: int = 20,
-):
-    """
-    Rolling permutation importance for time series.
-    Returns: DataFrame indexed by end-date with accuracy drop per feature.
-    """
-    results = []
+
+# =======================
+# ROLLING PERMUTATION IMPORTANCE
+# =======================
+def rolling_permutation_importance_ts(df, features, window=500, step=25):
+    rows = []
 
     for start in range(0, len(df) - window, step):
-        end = start + window
-        train = df.iloc[start:end]
-
-        X = train[features]
-        y = train["Target"]
+        train = df.iloc[start : start + window]
+        X, y = train[features], train["Target"]
 
         model = RandomForestClassifier(
-            n_estimators=300,
-            max_depth=6,
-            min_samples_leaf=20,
-            random_state=42,
-        )
-        model.fit(X, y)
+            n_estimators=300, max_depth=6, min_samples_leaf=20, random_state=42
+        ).fit(X, y)
 
-        # baseline accuracy (in-sample, deterministic)
         baseline = model.score(X, y)
-
-        row = {
-            "Date": train.index[-1],
-            "_baseline": baseline,
-        }
+        row = {"Date": train.index[-1], "_baseline": baseline}
 
         for f in features:
-            X_perm = X.copy()
-            X_perm[f] = np.random.permutation(X_perm[f].values)
-            score = model.score(X_perm, y)
-            row[f] = baseline - score  # accuracy drop
+            Xp = X.copy()
+            Xp[f] = np.random.permutation(Xp[f].values)
+            row[f] = baseline - model.score(Xp, y)
 
-        results.append(row)
+        rows.append(row)
 
-    df_imp = pd.DataFrame(results).set_index("Date")
-    return df_imp
+    return pd.DataFrame(rows).set_index("Date")
 
-def select_stable_features(
-    roll_imp: pd.DataFrame,
-    min_presence: float = 0.6,
-    min_median: float = 0.001,
-):
-    """
-    Select features that are stable over time.
-
-    Parameters
-    ----------
-    roll_imp : DataFrame
-        Output of rolling_permutation_importance_ts
-    min_presence : float
-        Fraction of windows with positive importance
-    min_median : float
-        Minimum median accuracy drop
-
-    Returns
-    -------
-    List[str]
-    """
-    features = [c for c in roll_imp.columns if c != "_baseline"]
+# =======================
+# FEATURE SELECTION
+# =======================
+def select_stable_features(roll_imp, min_presence=0.6, min_median=0.001):
     keep = []
-
-    for f in features:
-        series = roll_imp[f].dropna()
-
-        presence = (series > 0).mean()
-        median_imp = series.median()
-
-        if presence >= min_presence and median_imp >= min_median:
+    for f in roll_imp.columns:
+        if f == "_baseline":
+            continue
+        s = roll_imp[f].dropna()
+        if (s > 0).mean() >= min_presence and s.median() >= min_median:
             keep.append(f)
-
     return keep
 
-
+# =======================
+# PERMUTATION IMPORTANCE (FINAL)
+# =======================
 def permutation_importance_ts(model, df, features, test_size=250):
-    """
-    Permutation importance on last test_size observations (time-safe)
-    """
-    df_test = df.iloc[-test_size:].copy()
-    X = df_test[features]
-    y = df_test["Target"]
-
+    test = df.iloc[-test_size:]
+    X, y = test[features], test["Target"]
     baseline = accuracy_score(y, model.predict(X))
-    scores = {}
 
-    rng = np.random.default_rng(42)
-
+    out = {}
     for f in features:
-        X_perm = X.copy()
-        X_perm[f] = rng.permutation(X_perm[f].values)
-        acc = accuracy_score(y, model.predict(X_perm))
-        scores[f] = baseline - acc
-
-    return scores
+        Xp = X.copy()
+        Xp[f] = np.random.permutation(Xp[f].values)
+        out[f] = baseline - accuracy_score(y, model.predict(Xp))
+    return out
 
 # =======================
 # MAIN
 # =======================
 def main():
-    df = load_prices()
-    df = build_features(df)
+    df = build_features(load_prices())
 
-    if df is None or len(df) < 200:
-        print("[WARN] Not enough data to train model")
+    if len(df) < 200:
+        print("[WARN] Not enough data")
         return
 
-    features = (
-        [c for c in df.columns if isinstance(c, str)
-         and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
-        + ["Storage_Surprise_Z", "LNG_Feedgas_Surprise_Z"]
-    )
+    features = [
+        c for c in df.columns
+        if c.startswith(("Gas_Return_lag", "Oil_Return_lag"))
+    ] + ["Storage_Surprise_Z", "LNG_Feedgas_Surprise_Z"]
 
-    # Train model (current version returns ONLY model)
-    model = train_model(df, features)
+    roll_imp = rolling_permutation_importance_ts(df, features)
+    stable = select_stable_features(roll_imp)
 
-    # Forecast
-    last_row = df.iloc[-1:]
-    prob_up = model.predict_proba(last_row[features])[0][1]
+    if not stable:
+        print("[WARN] No stable features – using all")
+        stable = features
 
-    # Permutation importance
-    perm = permutation_importance_ts(model, df, features)
-
-    print("\n[INFO] Permutation importance (accuracy drop):")
-    for f, v in sorted(perm.items(), key=lambda x: x[1], reverse=True):
-        print(f"{f:<30} {v:+.4f}")
-
-    signal = "UP" if prob_up > PROB_THRESHOLD else "DOWN"
-    print(
-        "\n[RESULT]",
-        f"Probability UP: {prob_up:.3f}",
-        f"| Signal: {signal}",
-    )
-
-
-# =======================
-# ENTRY
-# =======================
-if __name__ == "__main__":
-    main()
-    
-# =======================
-# MAIN
-# =======================
-def main():
-    df = load_prices()
-    df = build_features(df)
-
-    if df is None or len(df) < 200:
-        print("[WARN] Not enough data to train model")
-        return
-
-    features = (
-        [c for c in df.columns if isinstance(c, str)
-         and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
-        + ["Storage_Surprise_Z", "LNG_Feedgas_Surprise_Z"]
-    )
-
-    # Train model (current version returns ONLY model)
-    model = train_model(df, features)
-
-    # Forecast
-    last_row = df.iloc[-1:]
-    prob_up = model.predict_proba(last_row[features])[0][1]
-
-    # Permutation importance
-    perm = permutation_importance_ts(model, df, features)
-
-    # =======================
-    # Rolling Feature Selection
-    # =======================
-    stable_features = select_stable_features(
-        roll_imp,
-        min_presence=0.6,   # >= 60% der Zeit relevant
-        min_median=0.001,   # mind. messbarer Accuracy-Impact
-    )
-
-    print("\n[INFO] Selected stable features:")
-    for f in stable_features:
+    print("\n[INFO] Stable features:")
+    for f in stable:
         print(" ", f)
 
-    if not stable_features:
-        print("[WARN] No stable features found – fallback to all")
-        stable_features = features
+    model = train_model(df, stable)
+    prob_up = model.predict_proba(df.iloc[-1:][stable])[0][1]
 
-
-    print("\n[INFO] Permutation importance (accuracy drop):")
+    perm = permutation_importance_ts(model, df, stable)
+    print("\n[INFO] Permutation importance:")
     for f, v in sorted(perm.items(), key=lambda x: x[1], reverse=True):
         print(f"{f:<30} {v:+.4f}")
 
-    signal = "UP" if prob_up > PROB_THRESHOLD else "DOWN"
-    print(
-        "\n[RESULT]",
-        f"Probability UP: {prob_up:.3f}",
-        f"| Signal: {signal}",
-    )
-
+    print("\n[RESULT]",
+          f"Probability UP: {prob_up:.3f}",
+          "| Signal:", "UP" if prob_up > PROB_THRESHOLD else "DOWN")
 
 # =======================
 # ENTRY
 # =======================
 if __name__ == "__main__":
     main()
-
