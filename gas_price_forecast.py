@@ -194,7 +194,7 @@ def permutation_importance_ts(model, df, features, test_size=250):
 # =======================
 # MAIN
 # =======================
-def main():
+def main(): 
     df = load_prices()
     df = build_features(df)
 
