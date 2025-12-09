@@ -231,6 +231,42 @@ def rolling_permutation_importance_ts(
     df_imp = pd.DataFrame(results).set_index("Date")
     return df_imp
 
+def select_stable_features(
+    roll_imp: pd.DataFrame,
+    min_presence: float = 0.6,
+    min_median: float = 0.001,
+):
+    """
+    Select features that are stable over time.
+
+    Parameters
+    ----------
+    roll_imp : DataFrame
+        Output of rolling_permutation_importance_ts
+    min_presence : float
+        Fraction of windows with positive importance
+    min_median : float
+        Minimum median accuracy drop
+
+    Returns
+    -------
+    List[str]
+    """
+    features = [c for c in roll_imp.columns if c != "_baseline"]
+    keep = []
+
+    for f in features:
+        series = roll_imp[f].dropna()
+
+        presence = (series > 0).mean()
+        median_imp = series.median()
+
+        if presence >= min_presence and median_imp >= min_median:
+            keep.append(f)
+
+    return keep
+
+
 def permutation_importance_ts(model, df, features, test_size=250):
     """
     Permutation importance on last test_size observations (time-safe)
