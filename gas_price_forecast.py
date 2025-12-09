@@ -165,6 +165,22 @@ def train_model(df, features):
         min_samples_leaf=20,
         random_state=42,
     )
+    
+    # =======================
+    # Rolling Permutation Importance
+    # =======================
+    roll_imp = rolling_permutation_importance_ts(
+        df,
+        features,
+        window=500,
+        step=25
+    )
+
+    print("\n[INFO] Rolling importance (last window):")
+    last = roll_imp.iloc[-1].drop("_baseline")
+    for f, v in last.sort_values(ascending=False).items():
+        print(f"{f:<30} {v:+.4f}")
+
 
     model.fit(X, y)
     return model
