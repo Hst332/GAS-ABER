@@ -194,7 +194,7 @@ def permutation_importance_ts(model, df, features, test_size=250):
 # =======================
 # MAIN
 # =======================
-def main(): 
+def main():
     df = load_prices()
     df = build_features(df)
 
@@ -203,21 +203,81 @@ def main():
         return
 
     features = (
-        [c for c in df.columns if isinstance(c, str) and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
+        [c for c in df.columns if isinstance(c, str)
+         and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
         + ["Storage_Surprise_Z", "LNG_Feedgas_Surprise_Z"]
     )
 
-  # Train model (current version returns ONLY model)
-model = train_model(df, features)
+    # Train model (current version returns ONLY model)
+    model = train_model(df, features)
 
-# Forecast
-last_row = df.iloc[-1:]
-prob_up = model.predict_proba(last_row[features])[0][1]
+    # Forecast
+    last_row = df.iloc[-1:]
+    prob_up = model.predict_proba(last_row[features])[0][1]
 
-# Permutation importance
-perm = permutation_importance_ts(model, df, features)
+    # Permutation importance
+    perm = permutation_importance_ts(model, df, features)
 
-print("\n[INFO] Permutation importance (accuracy drop):")
-for f, v in sorted(perm.items(), key=lambda x: x[1], reverse=True):
-    print(f"{f:<30} {v:+.4f}")
+    print("\n[INFO] Permutation importance (accuracy drop):")
+    for f, v in sorted(perm.items(), key=lambda x: x[1], reverse=True):
+        print(f"{f:<30} {v:+.4f}")
+
+    signal = "UP" if prob_up > PROB_THRESHOLD else "DOWN"
+    print(
+        "\n[RESULT]",
+        f"Probability UP: {prob_up:.3f}",
+        f"| Signal: {signal}",
+    )
+
+
+# =======================
+# ENTRY
+# =======================
+if __name__ == "__main__":
+    main()
+    
+# =======================
+# MAIN
+# =======================
+def main():
+    df = load_prices()
+    df = build_features(df)
+
+    if df is None or len(df) < 200:
+        print("[WARN] Not enough data to train model")
+        return
+
+    features = (
+        [c for c in df.columns if isinstance(c, str)
+         and c.startswith(("Gas_Return_lag", "Oil_Return_lag"))]
+        + ["Storage_Surprise_Z", "LNG_Feedgas_Surprise_Z"]
+    )
+
+    # Train model (current version returns ONLY model)
+    model = train_model(df, features)
+
+    # Forecast
+    last_row = df.iloc[-1:]
+    prob_up = model.predict_proba(last_row[features])[0][1]
+
+    # Permutation importance
+    perm = permutation_importance_ts(model, df, features)
+
+    print("\n[INFO] Permutation importance (accuracy drop):")
+    for f, v in sorted(perm.items(), key=lambda x: x[1], reverse=True):
+        print(f"{f:<30} {v:+.4f}")
+
+    signal = "UP" if prob_up > PROB_THRESHOLD else "DOWN"
+    print(
+        "\n[RESULT]",
+        f"Probability UP: {prob_up:.3f}",
+        f"| Signal: {signal}",
+    )
+
+
+# =======================
+# ENTRY
+# =======================
+if __name__ == "__main__":
+    main()
 
