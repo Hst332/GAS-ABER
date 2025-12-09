@@ -2,8 +2,10 @@
 # ===================================================================
 # gas_price_forecast.py
 # Stable / Online / CI-safe
+# Adds: Kill-switch comparison (on/off) with walk-forward equity exports
 # ===================================================================
 
+import os
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -33,8 +35,9 @@ SYMBOL_GAS = "NG=F"
 SYMBOL_OIL = "CL=F"
 PROB_THRESHOLD = 0.5
 
-MAX_DRAWDOWN = -0.12      # >>> ADDED (Kill-Switch)
-REENTRY_LEVEL = 0.95      # >>> ADDED (Re-Entry)
+# Kill-switch params (configurable)
+MAX_DRAWDOWN = -0.12  # when equity/peak -1 <= MAX_DRAWDOWN -> stop trading
+REENTRY_LEVEL = 0.95  # equity must recover to peak * REENTRY_LEVEL to re-enable trading
 
 # =======================
 # HELPERS
@@ -44,6 +47,12 @@ def flatten_columns(df):
         df = df.copy()
         df.columns = [c[0] for c in df.columns]
     return df
+
+def safe_mkdir(path):
+    try:
+        os.makedirs(path, exist_ok=True)
+    except Exception:
+        pass
 
 # =======================
 # DATA
@@ -71,17 +80,16 @@ def build_features(df):
         df[f"Gas_Return_lag{l}"] = df["Gas_Return"].shift(l)
         df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
 
-    # --- Trend regime ---
+    # --- Trend & Vol Regimes ---
     df["Gas_MA_50"] = df["Gas_Close"].rolling(50).mean()
     df["Gas_MA_200"] = df["Gas_Close"].rolling(200).mean()
     df["Trend_Regime"] = (df["Gas_MA_50"] > df["Gas_MA_200"]).astype(int)
 
-    # --- Volatility regime ---
     df["Gas_Vol_20"] = df["Gas_Return"].rolling(20).std()
     df["Gas_Vol_252"] = df["Gas_Return"].rolling(252).std()
     df["High_Vol_Regime"] = (df["Gas_Vol_20"] > df["Gas_Vol_252"]).astype(int)
 
-    # --- Storage Surprise ---
+    # --- Storage Surprise (optional) ---
     df["Storage_Surprise_Z"] = 0.0
     if fetch_eia_storage is not None:
         try:
@@ -90,7 +98,6 @@ def build_features(df):
             storage["Change"] = storage["Storage"].diff()
             storage["Exp"] = storage["Change"].rolling(5).mean()
             storage["Surprise"] = (storage["Change"] - storage["Exp"]).shift(1)
-
             roll = storage["Surprise"].rolling(52)
             storage["Storage_Surprise_Z"] = (
                 (storage["Surprise"] - roll.median())
@@ -108,7 +115,7 @@ def build_features(df):
         except Exception as e:
             print("[WARN] Storage unavailable:", e)
 
-    # --- LNG Feedgas ---
+    # --- LNG Feedgas Surprise (optional) ---
     df["LNG_Feedgas_Surprise_Z"] = 0.0
     if fetch_lng_feedgas is not None:
         try:
@@ -117,7 +124,6 @@ def build_features(df):
             feedgas["Change"] = feedgas["Feedgas"].diff()
             feedgas["Exp"] = feedgas["Change"].rolling(4).mean()
             feedgas["Surprise"] = (feedgas["Change"] - feedgas["Exp"]).shift(1)
-
             roll = feedgas["Surprise"].rolling(52)
             feedgas["LNG_Feedgas_Surprise_Z"] = (
                 (feedgas["Surprise"] - roll.mean()) / roll.std()
@@ -151,14 +157,19 @@ def train_model(df, features):
     return model
 
 # =======================
-# WALK-FORWARD BACKTEST
+# WALK-FORWARD BACKTEST (with toggle for kill-switch)
 # =======================
-def walk_forward_backtest(df, features, train_window=750):
+def walk_forward_backtest(df, features, train_window=750, enable_kill_switch=True):
+    """
+    Walk-forward 1-step ahead backtest.
+    enable_kill_switch: if True, apply the drawdown-based kill-switch logic.
+    Returns: DataFrame with Date index and columns Signal, Return, PnL, Equity, Trading (bool)
+    """
     records = []
 
-    equity = 1.0                     # >>> ADDED
-    peak = 1.0                       # >>> ADDED
-    trading_enabled = True           # >>> ADDED
+    equity = 1.0
+    peak = 1.0
+    trading_enabled = True
 
     for t in range(train_window, len(df) - 1):
         train = df.iloc[t - train_window : t]
@@ -172,22 +183,23 @@ def walk_forward_backtest(df, features, train_window=750):
 
         signal = int(
             trading_enabled
-            and prob_up > PROB_THRESHOLD
+            and (prob_up > PROB_THRESHOLD)
             and trend_ok
             and vol_ok
-        )                               # >>> MODIFIED
+        )
 
         ret = df["Gas_Return"].iloc[t + 1]
         pnl = signal * ret
-        equity *= (1 + pnl)            # >>> ADDED
+        equity *= (1 + pnl)
+        peak = max(peak, equity)
+        drawdown = equity / peak - 1
 
-        peak = max(peak, equity)       # >>> ADDED
-        drawdown = equity / peak - 1   # >>> ADDED
-
-        if trading_enabled and drawdown <= MAX_DRAWDOWN:
-            trading_enabled = False    # >>> ADDED
-        elif not trading_enabled and equity >= peak * REENTRY_LEVEL:
-            trading_enabled = True     # >>> ADDED
+        # apply kill-switch only if enabled
+        if enable_kill_switch:
+            if trading_enabled and drawdown <= MAX_DRAWDOWN:
+                trading_enabled = False
+            elif (not trading_enabled) and (equity >= peak * REENTRY_LEVEL):
+                trading_enabled = True
 
         records.append(
             {
@@ -195,17 +207,33 @@ def walk_forward_backtest(df, features, train_window=750):
                 "Signal": signal,
                 "Return": ret,
                 "PnL": pnl,
-                "Equity": equity,          # >>> ADDED
-                "Trading": trading_enabled # >>> ADDED
+                "Equity": equity,
+                "Trading": trading_enabled,
+                "Drawdown": drawdown,
             }
         )
 
-    return pd.DataFrame(records).set_index("Date")
+    out = pd.DataFrame(records).set_index("Date")
+    return out
 
 # =======================
-# MAIN
+# UTIL: simple stats
+# =======================
+def backtest_stats(bt_df):
+    if bt_df.empty:
+        return {}
+    total_return = bt_df["Equity"].iloc[-1] - 1
+    hit_rate = (bt_df["PnL"] > 0).mean()
+    max_dd = (bt_df["Equity"] / bt_df["Equity"].cummax() - 1).min()
+    return {"total_return": total_return, "hit_rate": hit_rate, "max_dd": max_dd}
+
+# =======================
+# MAIN (runs both variants and compares)
 # =======================
 def main():
+    out_dir = "backtest_outputs"
+    safe_mkdir(out_dir)
+
     df = build_features(load_prices())
 
     if len(df) < 300:
@@ -213,8 +241,7 @@ def main():
         return
 
     features = [
-        c for c in df.columns
-        if c.startswith(("Gas_Return_lag", "Oil_Return_lag"))
+        c for c in df.columns if c.startswith(("Gas_Return_lag", "Oil_Return_lag"))
     ] + [
         "Storage_Surprise_Z",
         "LNG_Feedgas_Surprise_Z",
@@ -222,37 +249,37 @@ def main():
         "High_Vol_Regime",
     ]
 
-    model = train_model(df, features)
-    last = df.iloc[-1:]
-    prob_up = model.predict_proba(last[features])[0][1]
+    print("[INFO] Features used:", features)
 
-    trend_ok = last["Trend_Regime"].iloc[0] == 1
-    vol_ok = last["High_Vol_Regime"].iloc[0] == 0
+    # 1) Run with Kill-Switch (default behaviour)
+    print("\n[RUN] Walk-forward with Kill-Switch ENABLED")
+    bt_with = walk_forward_backtest(df, features, train_window=750, enable_kill_switch=True)
+    stats_with = backtest_stats(bt_with)
+    bt_with.to_csv(os.path.join(out_dir, "walkforward_with_killswitch.csv"))
 
-    signal = (
-        "UP"
-        if prob_up > PROB_THRESHOLD and trend_ok and vol_ok
-        else "DOWN"
-    )
+    # 2) Run without Kill-Switch
+    print("\n[RUN] Walk-forward with Kill-Switch DISABLED")
+    bt_without = walk_forward_backtest(df, features, train_window=750, enable_kill_switch=False)
+    stats_without = backtest_stats(bt_without)
+    bt_without.to_csv(os.path.join(out_dir, "walkforward_without_killswitch.csv"))
 
-    print(
-        "\n[RESULT]",
-        f"Probability UP: {prob_up:.3f}",
-        "| Trend OK:", trend_ok,
-        "| Vol OK:", vol_ok,
-        "| Signal:", signal,
-    )
+    # Print comparison
+    print("\n=== COMPARISON: with vs without kill-switch ===")
+    print(f"With  - total_return: {stats_with['total_return']:.2%}, hit_rate: {stats_with['hit_rate']:.2%}, max_dd: {stats_with['max_dd']:.2%}")
+    print(f"Without - total_return: {stats_without['total_return']:.2%}, hit_rate: {stats_without['hit_rate']:.2%}, max_dd: {stats_without['max_dd']:.2%}")
 
-    bt = walk_forward_backtest(df, features)
+    # Save comparison CSV
+    comp = pd.DataFrame([{"variant":"with_kill","total_return":stats_with["total_return"],"hit_rate":stats_with["hit_rate"],"max_dd":stats_with["max_dd"]},
+                         {"variant":"without_kill","total_return":stats_without["total_return"],"hit_rate":stats_without["hit_rate"],"max_dd":stats_without["max_dd"]}])
+    comp.to_csv(os.path.join(out_dir, "kill_switch_comparison.csv"), index=False)
 
-    total_return = bt["Equity"].iloc[-1] - 1
-    hit_rate = (bt["PnL"] > 0).mean()
-    max_dd = (bt["Equity"] / bt["Equity"].cummax() - 1).min()
+    # Write a short human-readable file
+    with open(os.path.join(out_dir, "kill_switch_summary.txt"), "w", encoding="utf-8") as f:
+        f.write("Kill-switch comparison\n")
+        f.write(f"With  : total_return={stats_with['total_return']:.6f}, hit_rate={stats_with['hit_rate']:.6f}, max_dd={stats_with['max_dd']:.6f}\n")
+        f.write(f"Without: total_return={stats_without['total_return']:.6f}, hit_rate={stats_without['hit_rate']:.6f}, max_dd={stats_without['max_dd']:.6f}\n")
 
-    print("\n[BACKTEST]")
-    print(f"Total return: {total_return:.2%}")
-    print(f"Hit rate    : {hit_rate:.2%}")
-    print(f"Max drawdown: {max_dd:.2%}")
+    print("\n[OK] Backtest outputs written to", out_dir)
 
 # =======================
 # ENTRY
