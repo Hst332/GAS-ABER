@@ -188,6 +188,9 @@ def stats(bt):
 # PLOTS (D3)
 # =======================
 def plot_equity(bt, title, path):
+    if not PLOTTING_AVAILABLE:
+        return
+
     bt["Equity"].plot(figsize=(10, 4))
     plt.title(title)
     plt.grid(True)
