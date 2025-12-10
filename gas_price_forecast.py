@@ -241,6 +241,7 @@ def main():
     res_df = pd.DataFrame(results).sort_values(
         ["MaxDD", "TotalReturn"], ascending=[False, False]
     )
+    safe_mkdir("outputs")
     res_df.to_csv("outputs/kill_switch_sweep.csv", index=False)
 
     # =======================
