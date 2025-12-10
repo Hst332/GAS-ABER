@@ -58,11 +58,17 @@ MAX_POSITION = 1.0   # full notional
 # HELPERS
 # =======================
 def flatten_columns(df):
+    
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = [c[0] for c in df.columns]
     return df
 
 def safe_mkdir(path):
+    os.makedirs(path, exist_ok=True)
+    
+import os
+
+def safe_mkdir(path: str):
     os.makedirs(path, exist_ok=True)
 
 # =======================
