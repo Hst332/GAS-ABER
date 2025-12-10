@@ -12,9 +12,16 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 
-import matplotlib
-matplotlib.use("Agg")  # <<< D3 (HEADLESS SAFE)
-import matplotlib.pyplot as plt
+# =======================
+# OPTIONAL PLOTTING (CI-SAFE)
+# =======================
+try:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    PLOTTING_AVAILABLE = True
+except Exception:
+    PLOTTING_AVAILABLE = False
 
 import yfinance as yf
 from sklearn.ensemble import RandomForestClassifier
