@@ -203,7 +203,7 @@ def plot_equity(bt, title, path):
 # =======================
 def main():
     if PLOTTING_AVAILABLE:
-    safe_mkdir("outputs")
+        safe_mkdir("outputs")
 
     df = build_features(load_prices())
 
