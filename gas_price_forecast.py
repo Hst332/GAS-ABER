@@ -449,3 +449,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+with open("forecast_output.txt", "w") as f:
+    f.write(f"Forecast Run: {datetime.now()}\n")
+    f.write(f"Probability UP: {prob_up:.2%}\n")
+    f.write(f"Probability DOWN: {1-prob_up:.2%}\n")
