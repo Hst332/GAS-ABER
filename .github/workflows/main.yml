@@ -39,4 +39,12 @@ jobs:
           path: |
             forecast_output.txt
             forecast_output.json
+            
+    - name: Commit forecast_output.txt
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add forecast_output.txt
+        git commit -m "Auto-update forecast_output.txt" || echo "No changes to commit"
+        git push
 
