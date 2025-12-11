@@ -256,6 +256,57 @@ def train_and_cv(df: pd.DataFrame, features: list) -> Tuple[RandomForestClassifi
     # final fit on all
     model.fit(X, y)
     return model, float(np.mean(accs)), float(np.std(accs))
+def write_outputs(res):
+    """
+    Writes forecast_output.txt and forecast_output.json
+    from the dictionary 'res' returned by your forecast logic.
+    Safe defaults included to avoid NameErrors.
+    """
+
+    import json
+
+    # Extract with fallbacks
+    prob_up_raw = res.get("prob_up_raw", 0.5)
+    prob_up_adj = res.get("prob_up_adj", prob_up_raw)
+    prob_down_adj = 1 - prob_up_adj
+    confidence = res.get("confidence", 0.0)
+    data_date = res.get("data_date", "N/A")
+    now_utc = res.get("now_utc", "N/A")
+    signal = res.get("signal", "UNKNOWN")
+
+    # ---------------- TXT ----------------
+    with open("forecast_output.txt", "w") as f:
+        f.write("===================================\n")
+        f.write("  NATURAL GAS PRICE FORECAST\n")
+        f.write("===================================\n")
+        f.write(f"Run time (UTC): {now_utc}\n")
+        f.write(f"Data date     : {data_date}\n\n")
+
+        f.write("Assessment:\n")
+        f.write(f"  Raw prob UP       : {prob_up_raw:.2%}\n")
+        f.write(f"  Adjusted prob UP  : {prob_up_adj:.2%}\n")
+        f.write(f"  Adjusted prob DOWN: {prob_down_adj:.2%}\n")
+        f.write(f"  Model confidence  : {confidence:.2%}\n\n")
+
+        f.write(f"Signal: {signal}\n")
+
+    # ---------------- JSON ----------------
+    with open("forecast_output.json", "w") as jf:
+        json.dump(
+            {
+                "timestamp_utc": now_utc,
+                "data_date": data_date,
+                "prob_up_raw": prob_up_raw,
+                "prob_up_adj": prob_up_adj,
+                "prob_down_adj": prob_down_adj,
+                "confidence": confidence,
+                "signal": signal,
+            },
+            jf,
+            indent=2
+        )
+
+    print("[OK] Outputs written: forecast_output.txt forecast_output.json")
 
 # -------------------------
 # Main run logic
