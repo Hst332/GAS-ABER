@@ -423,14 +423,48 @@ def write_outputs(result: Dict[str,Any]):
     lines.append(f"  Signal: {result['assessment']['signal']}")
     lines.append("===================================")
 
-    txt = "\n".join(lines)
-    with open(FORECAST_TXT, "w", encoding="utf-8") as f:
-        f.write(txt)
-    # JSON
-    with open(FORECAST_JSON, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2, default=str)
+    # ============ WRITE OUTPUT FILES ============
 
-    print(txt)  # CI log
+# Ensure variables exist
+prob_up_raw = result.get("prob_up_raw", 0.5)
+prob_up_adj = result.get("prob_up_adj", prob_up_raw)
+prob_down_adj = 1 - prob_up_adj
+confidence = result.get("confidence", 0.0)
+
+with open("forecast_output.txt", "w") as f:
+    f.write("===================================\n")
+    f.write("  NATURAL GAS PRICE FORECAST\n")
+    f.write("===================================\n")
+    f.write(f"Run time (UTC): {now_utc}\n")
+    f.write(f"Data date     : {data_date}\n\n")
+
+    f.write("Assessment:\n")
+    f.write(f"  Raw prob UP       : {prob_up_raw:.2%}\n")
+    f.write(f"  Adjusted prob UP  : {prob_up_adj:.2%}\n")
+    f.write(f"  Adjusted prob DOWN: {prob_down_adj:.2%}\n")
+    f.write(f"  Model confidence  : {confidence:.2%}\n\n")
+
+    if prob_up_adj > 0.5:
+        f.write("Signal: UP\n")
+    else:
+        f.write("Signal: DOWN\n")
+
+# JSON version
+json.dump(
+    {
+        "timestamp_utc": now_utc,
+        "prob_up_raw": prob_up_raw,
+        "prob_up_adj": prob_up_adj,
+        "prob_down_adj": prob_down_adj,
+        "confidence": confidence,
+        "signal": "UP" if prob_up_adj > 0.5 else "DOWN",
+    },
+    open("forecast_output.json", "w"),
+    indent=2
+)
+
+print("[OK] Outputs written: forecast_output.txt forecast_output.json")
+
 
 # -------------------------
 # Entrypoint
