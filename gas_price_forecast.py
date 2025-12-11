@@ -274,21 +274,7 @@ def write_outputs(res):
     now_utc = res.get("now_utc", "N/A")
     signal = res.get("signal", "UNKNOWN")
 
-    # ---------------- TXT ----------------
-    with open("forecast_output.txt", "w") as f:
-        f.write("===================================\n")
-        f.write("  NATURAL GAS PRICE FORECAST\n")
-        f.write("===================================\n")
-        f.write(f"Run time (UTC): {now_utc}\n")
-        f.write(f"Data date     : {data_date}\n\n")
-
-        f.write("Assessment:\n")
-        f.write(f"  Raw prob UP       : {prob_up_raw:.2%}\n")
-        f.write(f"  Adjusted prob UP  : {prob_up_adj:.2%}\n")
-        f.write(f"  Adjusted prob DOWN: {prob_down_adj:.2%}\n")
-        f.write(f"  Model confidence  : {confidence:.2%}\n\n")
-
-        f.write(f"Signal: {signal}\n")
+   
 
     # ---------------- JSON ----------------
     with open("forecast_output.json", "w") as jf:
