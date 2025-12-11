@@ -1,113 +1,233 @@
 #!/usr/bin/env python3
-# ===================================================================
-# gas_price_forecast.py
-# Stable / Online / CI-safe
-# Adds:
-#  E) transaction costs & slippage
-#  F) position sizing via vol-targeting + prob-based sizing
-#  G) hard kill-switch (drawdown-based)
-#  H) live-signal export (JSON)
-# ===================================================================
-
+# -*- coding: utf-8 -*-
+"""
+gas_price_forecast.py
+Daily automated run (GitHub Actions) - robust fetching + EIA fallback + clear outputs.
+Outputs:
+ - forecast_output.txt (human readable)
+ - forecast_output.json (machine readable)
+ - logs printed to stdout (CI logs)
+Usage: python gas_price_forecast.py
+Env:
+ - EIA_API_KEY (optional) : if set, attempt to query EIA storage series
+"""
+from __future__ import annotations
 import os
+import sys
 import json
+from datetime import datetime, timezone
+from typing import Dict, Any, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from datetime import datetime
+import requests
 
-# =======================
-# OPTIONAL PLOTTING (CI-SAFE)
-# =======================
+# external libs that should be installed (requirements.txt)
 try:
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    PLOTTING_AVAILABLE = True
-except Exception:
-    PLOTTING_AVAILABLE = False
+    import yfinance as yf
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.model_selection import TimeSeriesSplit
+    from sklearn.metrics import accuracy_score
+except Exception as e:
+    print("Missing Python packages:", e)
+    print("Install requirements.txt before running.")
+    raise
 
-import yfinance as yf
-from sklearn.ensemble import RandomForestClassifier
-
-# =======================
-# OPTIONAL LOADERS
-# =======================
-try:
-    import fetch_eia_storage
-except Exception:
-    fetch_eia_storage = None
-
-try:
-    import fetch_lng_feedgas
-except Exception:
-    fetch_lng_feedgas = None
-
-# =======================
-# CONFIG (tweakable)
-# =======================
+# -------------------------
+# Config
+# -------------------------
 START_DATE = "2015-01-01"
-SYMBOL_GAS = "NG=F"
-SYMBOL_OIL = "CL=F"
+SYMBOL_GAS = "NG=F"   # Natural Gas continuous future / Yahoo
+SYMBOL_OIL = "CL=F"   # WTI future / Yahoo
+FORECAST_TXT = "forecast_output.txt"
+FORECAST_JSON = "forecast_output.json"
 PROB_THRESHOLD = 0.5
 
-# E) transaction costs & slippage defaults
-TX_COST = 0.0005       # transaction cost per unit notional (0.05%)
-SLIPPAGE = 0.0002      # slippage fraction applied on trade (0.02%)
+# EIA storage series id for US working gas in storage (weekly)
+# We will attempt to use EIA API series: "NG.RNGWHHD.W" (example) or user can set a series in code
+# For safety we use a common storage series id used in some scripts: "NG.RNGWHHD.W" is placeholder.
+EIA_STORAGE_SERIES = os.getenv("EIA_STORAGE_SERIES", "NG.RNGWHHD.W")
+EIA_API_KEY = os.getenv("EIA_API_KEY", None)
 
-# F) vol-targeting
-TARGET_VOL_ANN = 0.20  # target annual vol (20%)
-MAX_POSITION = 1.0     # cap notional
+# Local cache file for storage (if remote fails)
+STORAGE_CACHE = "storage_cache.csv"
 
-# D1/D3 config
-KILL_SWITCH_GRID = [-0.05, -0.10, -0.15, -0.20]  # drawdown thresholds (negative)
-REENTRY_LEVEL = 0.95   # re-enter when equity >= peak * REENTRY_LEVEL
+# -------------------------
+# Utilities
+# -------------------------
+def utc_now_str() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z")
 
-# OUTPUTS folder
-OUT_DIR = "outputs"
-
-# =======================
-# HELPERS
-# =======================
-def safe_mkdir(path: str):
-    os.makedirs(path, exist_ok=True)
-
-def flatten_columns(df):
+def flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
+        cols = []
+        for c in df.columns:
+            if isinstance(c, tuple):
+                # pick first non-empty element, join otherwise
+                s = "_".join([str(x) for x in c if x is not None and str(x) != ""])
+                cols.append(s)
+            else:
+                cols.append(str(c))
         df = df.copy()
-        df.columns = [c[0] for c in df.columns]
+        df.columns = cols
     return df
 
-def now_utc_iso():
-    return datetime.utcnow().isoformat() + "Z"
+# -------------------------
+# Fetchers
+# -------------------------
+def fetch_prices_yahoo(start=START_DATE) -> Tuple[pd.DataFrame, Dict[str,str]]:
+    """Download gas + oil closes from yfinance. Returns df and sources info."""
+    sources = {}
+    print("[INFO] Fetching prices from Yahoo Finance...")
+    gas = yf.download(SYMBOL_GAS, start=start, progress=False, auto_adjust=True)
+    oil = yf.download(SYMBOL_OIL, start=start, progress=False, auto_adjust=True)
 
-# =======================
-# DATA
-# =======================
-def load_prices():
-    gas = yf.download(SYMBOL_GAS, start=START_DATE, auto_adjust=True, progress=False)
-    oil = yf.download(SYMBOL_OIL, start=START_DATE, auto_adjust=True, progress=False)
+    gas = flatten_columns(gas)
+    oil = flatten_columns(oil)
 
-    gas = flatten_columns(gas)[["Close"]].rename(columns={"Close": "Gas_Close"})
-    oil = flatten_columns(oil)[["Close"]].rename(columns={"Close": "Oil_Close"})
+    # pick column named 'Close' or fallback
+    def pick_close(df: pd.DataFrame) -> str:
+        for c in df.columns:
+            if str(c).lower() == "close":
+                return c
+        # fallback: first numeric column
+        for c in df.columns:
+            if pd.api.types.is_numeric_dtype(df[c]):
+                return c
+        raise RuntimeError("No close-like column found in price DataFrame")
 
-    df = gas.join(oil, how="inner").dropna()
-    print("[INFO] loaded prices:", df.shape)
-    return df
+    gc = pick_close(gas)
+    oc = pick_close(oil)
 
-# =======================
-# FEATURES
-# =======================
-def build_features(df):
-    df = df.copy()
+    gas = gas[[gc]].rename(columns={gc: "Gas_Close"})
+    oil = oil[[oc]].rename(columns={oc: "Oil_Close"})
+    df = gas.join(oil, how="inner")
+    df = df.sort_index().dropna()
 
+    sources["gas"] = f"yahoo:{SYMBOL_GAS}"
+    sources["oil"] = f"yahoo:{SYMBOL_OIL}"
+    print(f"[INFO] Prices fetched: rows={len(df)}, columns={list(df.columns)}")
+    return df, sources
+
+def fetch_eia_storage_weekly(series_id: str = EIA_STORAGE_SERIES, api_key: Optional[str] = EIA_API_KEY) -> Tuple[Optional[pd.DataFrame], Dict[str,str]]:
+    """
+    Attempt to fetch EIA series via API (series/observations).
+    If api_key is None, skip and return (None, info) - caller will use cache fallback.
+    Returns (df or None, sources dict)
+    df columns: Date (pd.Timestamp), Storage (float)
+    """
+    sources = {}
+    if not api_key:
+        sources["storage"] = "EIA:SKIPPED(no API key)"
+        return None, sources
+
+    url = "https://api.eia.gov/series/"
+    params = {"api_key": api_key, "series_id": series_id}
+    try:
+        r = requests.get(url, params=params, timeout=15)
+        r.raise_for_status()
+        data = r.json()
+        if "series" not in data or not data["series"]:
+            sources["storage"] = f"EIA:ERROR(no series returned)"
+            return None, sources
+        obs = data["series"][0].get("data", [])
+        # obs is list of [date_string, value] with date like '2025-11-14'
+        df = pd.DataFrame(obs, columns=["date", "value"])
+        df["Date"] = pd.to_datetime(df["date"])
+        df["Storage"] = pd.to_numeric(df["value"], errors="coerce")
+        df = df[["Date", "Storage"]].sort_values("Date").reset_index(drop=True)
+        sources["storage"] = f"EIA:{series_id}"
+        return df, sources
+    except Exception as e:
+        sources["storage"] = f"EIA:ERROR({str(e)})"
+        return None, sources
+
+def read_storage_cache(path: str = STORAGE_CACHE) -> Optional[pd.DataFrame]:
+    if not os.path.exists(path):
+        return None
+    try:
+        df = pd.read_csv(path, parse_dates=["Date"])
+        if "Storage" in df.columns:
+            return df[["Date","Storage"]].sort_values("Date").reset_index(drop=True)
+    except Exception:
+        pass
+    return None
+
+def write_storage_cache(df: pd.DataFrame, path: str = STORAGE_CACHE) -> None:
+    try:
+        df[["Date","Storage"]].to_csv(path, index=False)
+    except Exception:
+        pass
+
+# -------------------------
+# Feature & model helpers
+# -------------------------
+def prepare_features(df_prices: pd.DataFrame, storage_df: Optional[pd.DataFrame], feedgas_df: Optional[pd.DataFrame]=None) -> Tuple[pd.DataFrame, Dict[str,Any]]:
+    """
+    Build features. Returns (df, meta) where meta contains which sources were used & indicators.
+    Important: no leakage — target = next day direction (shift -1)
+    """
+    df = df_prices.copy()
+    meta: Dict[str, Any] = {"sources": {}, "notes": []}
+
+    # returns
     df["Gas_Return"] = df["Gas_Close"].pct_change()
     df["Oil_Return"] = df["Oil_Close"].pct_change()
-
-    for l in range(1, 6):
+    for l in range(1,6):
         df[f"Gas_Return_lag{l}"] = df["Gas_Return"].shift(l)
         df[f"Oil_Return_lag{l}"] = df["Oil_Return"].shift(l)
 
-    # regimes
+    # optional storage: compute Surprise as (change - rolling expectation) shifted 1
+    df["Storage_Surprise"] = 0.0
+    if storage_df is not None and not storage_df.empty:
+        # align weekly storage to daily index: forward-fill backward-fill as appropriate
+        s = storage_df.copy()
+        s = s.set_index("Date").sort_index()
+        s = s.reindex(pd.date_range(s.index.min(), s.index.max(), freq="D"))
+        s["Storage"] = s["Storage"].ffill().bfill()
+        s = s.reset_index().rename(columns={"index":"Date"})
+        # compute weekly-like changes on original weekly points: use original storage_df for changes
+        sd = storage_df.copy().sort_values("Date").reset_index(drop=True)
+        sd["Change"] = sd["Storage"].diff()
+        sd["Exp"] = sd["Change"].rolling(4, min_periods=1).mean()
+        sd["Surprise"] = (sd["Change"] - sd["Exp"]).shift(1)
+        # map surprise to daily by forward-fill
+        sd_daily = sd.set_index("Date")[["Surprise"]].reindex(df.index, method="ffill")
+        sd_daily = sd_daily.fillna(0.0)
+        df["Storage_Surprise"] = sd_daily["Surprise"].values
+        meta["sources"]["storage"] = "used"
+    else:
+        meta["sources"]["storage"] = "missing"
+
+    # optional feedgas: same pattern
+    df["Feedgas_Surprise"] = 0.0
+    if feedgas_df is not None and not feedgas_df.empty:
+        fg = feedgas_df.copy().sort_values("Date").reset_index(drop=True)
+        fg["Change"] = fg["Feedgas"].diff()
+        fg["Exp"] = fg["Change"].rolling(4, min_periods=1).mean()
+        fg["Surprise"] = (fg["Change"] - fg["Exp"]).shift(1)
+        fg_daily = fg.set_index("Date")[["Surprise"]].reindex(df.index, method="ffill").fillna(0.0)
+        df["Feedgas_Surprise"] = fg_daily["Surprise"].values
+        meta["sources"]["feedgas"] = "used"
+    else:
+        meta["sources"]["feedgas"] = "missing"
+
+    # scale surprises robustly (Z-like using rolling median/IQR) and shift to avoid leak
+    try:
+        roll = pd.Series(df["Storage_Surprise"]).rolling(window=52, min_periods=1)
+        med = roll.median()
+        iqr = roll.quantile(0.75) - roll.quantile(0.25)
+        df["Storage_Surprise_Z"] = ((df["Storage_Surprise"] - med) / (iqr.replace(0, np.nan))).shift(1).fillna(0.0).replace([np.inf, -np.inf], 0.0)
+    except Exception:
+        df["Storage_Surprise_Z"] = 0.0
+
+    try:
+        rollf = pd.Series(df["Feedgas_Surprise"]).rolling(window=52, min_periods=1)
+        df["Feedgas_Surprise_Z"] = ((df["Feedgas_Surprise"] - rollf.mean()) / (rollf.std().replace(0, np.nan))).shift(1).fillna(0.0).replace([np.inf, -np.inf], 0.0)
+    except Exception:
+        df["Feedgas_Surprise_Z"] = 0.0
+
+    # regime features (no leakage)
     df["Gas_MA_50"] = df["Gas_Close"].rolling(50).mean()
     df["Gas_MA_200"] = df["Gas_Close"].rolling(200).mean()
     df["Trend_Regime"] = (df["Gas_MA_50"] > df["Gas_MA_200"]).astype(int)
@@ -116,245 +236,216 @@ def build_features(df):
     df["Gas_Vol_252"] = df["Gas_Return"].rolling(252).std()
     df["High_Vol_Regime"] = (df["Gas_Vol_20"] > df["Gas_Vol_252"]).astype(int)
 
-    # optional fundamentals placeholders (will be 0 if loaders missing)
-    df["Storage_Surprise_Z"] = 0.0
-    df["LNG_Feedgas_Surprise_Z"] = 0.0
-
-    # Target (next day direction; no leak)
+    # target: next day direction (no leak)
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
 
-    df = df.dropna()
-    return df
+    df = df.dropna().copy()
+    meta["n_rows"] = len(df)
+    return df, meta
 
-# =======================
-# MODEL
-# =======================
-def train_model(df, features):
-    model = RandomForestClassifier(
-        n_estimators=300, max_depth=6, min_samples_leaf=20, random_state=42
-    )
-    model.fit(df[features], df["Target"])
-    return model
+def train_and_cv(df: pd.DataFrame, features: list) -> Tuple[RandomForestClassifier, float, float]:
+    X = df[features]
+    y = df["Target"]
+    tscv = TimeSeriesSplit(n_splits=5)
+    accs = []
+    model = RandomForestClassifier(n_estimators=300, max_depth=6, min_samples_leaf=5, random_state=42)
+    for tr, te in tscv.split(X):
+        model.fit(X.iloc[tr], y.iloc[tr])
+        pred = model.predict(X.iloc[te])
+        accs.append(accuracy_score(y.iloc[te], pred))
+    # final fit on all
+    model.fit(X, y)
+    return model, float(np.mean(accs)), float(np.std(accs))
 
-# =======================
-# POSITION SIZING (E+F)
-# - combine prob-strength with vol-targeting
-# - returns position in [0, MAX_POSITION]
-# =======================
-def compute_position(prob_up, realized_vol_daily, prev_position, tx_cost=TX_COST):
-    # prob strength (0..1)
-    strength = max(0.0, (prob_up - 0.5) * 2.0)
+# -------------------------
+# Main run logic
+# -------------------------
+def run_one_cycle() -> Dict[str,Any]:
+    out: Dict[str, Any] = {"run_time_utc": utc_now_str(), "data": {}, "model": {}}
 
-    # realized_vol_daily -> annualize
-    if (realized_vol_daily is None) or np.isnan(realized_vol_daily) or realized_vol_daily <= 0:
-        vol_pos = 0.0
+    # 1) prices
+    try:
+        df_prices, src_prices = fetch_prices_yahoo()
+        out["data"].update(src_prices)
+    except Exception as e:
+        raise RuntimeError("Failed to fetch prices: " + str(e))
+
+    # 2) EIA storage attempt
+    storage_df = None
+    feedgas_df = None
+    storage_sources = {}
+    # Try EIA
+    sd, ssrc = fetch_eia_storage_weekly()
+    storage_sources.update(ssrc)
+    if sd is not None:
+        storage_df = sd
+        write_storage_cache(sd)  # update cache
+        out["data"]["storage_fetch"] = ssrc.get("storage", "unknown")
     else:
-        realized_vol_ann = realized_vol_daily * np.sqrt(252.0)
-        vol_target_mult = TARGET_VOL_ANN / realized_vol_ann if realized_vol_ann > 0 else 0.0
-        vol_pos = vol_target_mult
+        # fallback to cache
+        cached = read_storage_cache()
+        if cached is not None:
+            storage_df = cached
+            out["data"]["storage_fetch"] = "cache"
+            out["data"]["storage_note"] = "Used cached storage due to EIA failure"
+        else:
+            out["data"]["storage_fetch"] = ssrc.get("storage", "missing")
+            out["data"]["storage_note"] = "No storage available (EIA and cache missing). Influence reduced."
 
-    # combined
-    raw = strength * vol_pos
+    # We do not implement feedgas live fetch in core script (could plug fetch_lng_feedgas module)
+    out["data"]["feedgas_fetch"] = "not_fetched"
 
-    # cap and ensure non-negative
-    pos = max(0.0, min(MAX_POSITION, raw))
+    # 3) prepare features
+    df, meta = prepare_features(df_prices, storage_df, feedgas_df)
+    out["meta"] = meta
 
-    # account roughly for transaction cost by slightly reducing size if switching a lot
-    # (we simply penalize immediate size relative to prev position to reduce churning)
-    delta = abs(pos - (prev_position or 0.0))
-    # simple shrink when delta large (this is a heuristic)
-    if delta > 0.5:
-        pos = pos * (1.0 - min(0.25, delta * 0.25))
+    # 4) features list
+    feature_cols = [c for c in df.columns if c.startswith("Gas_Return_lag") or c.startswith("Oil_Return_lag")]
+    # add surprises/regimes
+    add_cols = []
+    if "Storage_Surprise_Z" in df.columns:
+        add_cols.append("Storage_Surprise_Z")
+    if "Feedgas_Surprise_Z" in df.columns:
+        add_cols.append("Feedgas_Surprise_Z")
+    add_cols += ["Trend_Regime", "High_Vol_Regime"]
+    features = feature_cols + [c for c in add_cols if c in df.columns]
 
-    return pos
+    if len(df) < 50 or len(features) < 3:
+        raise RuntimeError("Not enough data/features to train safely")
 
-# =======================
-# Walk-forward backtest with:
-# - transaction costs & slippage (E)
-# - vol-targeting + prob-based sizing (F)
-# - hard kill-switch (G)
-# - outputs equity series
-# =======================
-def walk_forward_backtest(df, features, train_window=750, max_drawdown=None, tx_cost=TX_COST, slippage=SLIPPAGE):
-    equity = 1.0
-    peak = 1.0
-    trading = True
-    prev_position = 0.0
-    rows = []
+    # 5) train and cross-validate
+    model, cv_mean, cv_std = train_and_cv(df, features)
+    out["model"]["cv_mean"] = cv_mean
+    out["model"]["cv_std"] = cv_std
+    out["model"]["n_features"] = len(features)
+    out["model"]["features"] = features
 
-    # precompute rolling realized vol (daily) using window=20
-    df["RealizedVolDaily"] = df["Gas_Return"].rolling(20).std().fillna(method="bfill")
-
-    for t in range(train_window, len(df) - 1):
-        train = df.iloc[t - train_window : t]
-        test = df.iloc[t : t + 1]
-
-        model = train_model(train, features)
-        prob_up = model.predict_proba(test[features])[0][1]
-
-        # realized vol at time t (use prior window)
-        realized_vol_daily = float(df["RealizedVolDaily"].iloc[t]) if not np.isnan(df["RealizedVolDaily"].iloc[t]) else None
-
-        # compute raw position (0..MAX) by combining prob & vol-target
-        position = compute_position(prob_up, realized_vol_daily, prev_position)
-
-        # apply regime & trading flag
-        trend_ok = bool(test["Trend_Regime"].iloc[0] == 1)
-        vol_ok = bool(test["High_Vol_Regime"].iloc[0] == 0)
-        if not (trend_ok and vol_ok and trading):
-            position = 0.0
-
-        # apply transaction cost & slippage when position changes
-        delta_pos = position - prev_position
-        # transaction cost reduces equity immediately proportional to change in notional
-        tx_cost_amount = abs(delta_pos) * tx_cost * equity
-        # slippage approximated as slippage fraction of notional times sign of trade (cost)
-        slippage_amount = abs(delta_pos) * slippage * equity
-
-        # market return next day
-        ret = float(df["Gas_Return"].iloc[t + 1])
-
-        # PnL before costs = position * ret
-        pnl = position * ret
-
-        # subtract costs (immediately)
-        pnl_after_costs = pnl - (tx_cost_amount / equity) - (slippage_amount / equity)
-        # Update equity (multiplicative)
-        equity *= (1 + pnl_after_costs)
-
-        # update peak/drawdown and trading kill-switch
-        peak = max(peak, equity)
-        drawdown = equity / peak - 1.0
-
-        if max_drawdown is not None:
-            if trading and drawdown <= max_drawdown:
-                trading = False
-            elif not trading and equity >= peak * REENTRY_LEVEL:
-                trading = True
-
-        rows.append(
-            {
-                "Date": df.index[t],
-                "Equity": equity,
-                "PnL": pnl_after_costs,
-                "Position": position,
-                "Drawdown": drawdown,
-                "ProbUp": prob_up,
-                "RealizedVolDaily": realized_vol_daily,
-                "TxCostUsd": tx_cost_amount,
-                "SlippageUsd": slippage_amount,
-            }
-        )
-
-        prev_position = position
-
-    out = pd.DataFrame(rows).set_index("Date")
-    return out
-
-# =======================
-# STATS
-# =======================
-def stats(bt):
-    if bt.empty:
-        return {"TotalReturn": 0.0, "MaxDD": 0.0, "HitRate": 0.0}
-    total_return = bt["Equity"].iloc[-1] - 1.0
-    maxdd = (bt["Equity"] / bt["Equity"].cummax() - 1.0).min()
-    hit_rate = (bt["PnL"] > 0).mean()
-    return {"TotalReturn": float(total_return), "MaxDD": float(maxdd), "HitRate": float(hit_rate)}
-
-# =======================
-# PLOTTING (optional)
-# =======================
-def plot_equity(bt, title, path):
-    if not PLOTTING_AVAILABLE:
-        return
-    safe_mkdir(os.path.dirname(path) or ".")
-    bt["Equity"].plot(figsize=(10, 4))
-    plt.title(title)
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(path)
-    plt.close()
-
-# =======================
-# Live signal export (H)
-# =======================
-def write_live_signal(prob_up, signal, position, acc=None, out_dir=OUT_DIR):
-    safe_mkdir(out_dir)
-    payload = {
-        "timestamp": now_utc_iso(),
-        "prob_up": float(prob_up),
-        "signal": str(signal),
-        "position": float(position),
-        "cv_accuracy": None if acc is None else float(acc),
-    }
-    with open(os.path.join(out_dir, "last_signal.json"), "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2)
-    # also write a small human log
-    with open(os.path.join(out_dir, "last_signal.txt"), "w", encoding="utf-8") as f:
-        f.write(json.dumps(payload))
-
-# =======================
-# MAIN
-# =======================
-def main():
-    safe_mkdir(OUT_DIR)
-
-    df = build_features(load_prices())
-
-    if len(df) < 300:
-        print("[WARN] Not enough data")
-        return
-
-    features = [c for c in df.columns if c.startswith(("Gas_Return_lag", "Oil_Return_lag"))] + [
-        "Trend_Regime", "High_Vol_Regime", "Storage_Surprise_Z", "LNG_Feedgas_Surprise_Z"
-    ]
-
-    # Sweep kill-switch thresholds (D1)
-    results = []
-    for dd in KILL_SWITCH_GRID:
-        bt = walk_forward_backtest(df, features, train_window=750, max_drawdown=dd, tx_cost=TX_COST, slippage=SLIPPAGE)
-        s = stats(bt)
-        s["MaxDrawdownParam"] = dd
-        results.append(s)
-
-        # plot per option if plotting available
-        plot_equity(bt, f"Equity (DD={dd:.0%})", os.path.join(OUT_DIR, f"equity_dd_{int(abs(dd)*100)}.png"))
-
-    res_df = pd.DataFrame(results).sort_values("TotalReturn", ascending=False).reset_index(drop=True)
-    res_df.to_csv(os.path.join(OUT_DIR, "kill_switch_sweep.csv"), index=False)
-
-    best_dd = float(res_df.iloc[0]["MaxDrawdownParam"])
-    print("[INFO] kill-switch sweep results:\n", res_df)
-    print(f"[INFO] selected best drawdown threshold: {best_dd:.0%}")
-
-    # final run with best kill-switch
-    bt_final = walk_forward_backtest(df, features, train_window=750, max_drawdown=best_dd, tx_cost=TX_COST, slippage=SLIPPAGE)
-    plot_equity(bt_final, "FINAL EQUITY (BEST CONFIG)", os.path.join(OUT_DIR, "equity_final.png"))
-    final_stats = stats(bt_final)
-    print("[FINAL STATS]", final_stats)
-
-    # compute last live signal and persist (H)
-    # we train model on full data and compute last prediction
-    model = train_model(df, features)
+    # 6) live forecast: last row
     last_row = df.iloc[-1:]
     prob_up = float(model.predict_proba(last_row[features])[0][1])
+    prob_down = 1.0 - prob_up
 
-    # compute position using today's realized vol (use last value)
-    realized_vol_daily = float(df["Gas_Return"].rolling(20).std().iloc[-1])
-    position = compute_position(prob_up, realized_vol_daily, prev_position=0.0)
+    out["model"]["prob_up_raw"] = prob_up
+    out["model"]["prob_down_raw"] = prob_down
 
-    trend_ok = bool(last_row["Trend_Regime"].iloc[0] == 1)
-    vol_ok = bool(last_row["High_Vol_Regime"].iloc[0] == 0)
-    position = position if (trend_ok and vol_ok) else 0.0
-    signal = "UP" if prob_up > PROB_THRESHOLD and position > 0.0 else "DOWN"
+    # 7) Confidence adjustment depending on missing data
+    # base confidence starts from CV accuracy
+    base_conf = cv_mean
+    conf = base_conf
+    influence_notes = []
+    # penalize if storage missing (because storage matters for fundamentals)
+    storage_fetch = out["data"].get("storage_fetch", "missing")
+    if storage_fetch != "used":
+        # decrease confidence by 8% if cached used, 12% if completely missing — heuristics
+        if storage_fetch == "cache":
+            conf -= 0.08
+            influence_notes.append("storage_from_cache: -8% conf")
+        else:
+            conf -= 0.12
+            influence_notes.append("storage_missing: -12% conf")
+    # feedgas not present -> small penalty
+    if out["data"].get("feedgas_fetch", "not_fetched") != "used":
+        conf -= 0.02
+        influence_notes.append("feedgas_missing: -2% conf")
 
-    # write live signal JSON
-    write_live_signal(prob_up, signal, position, acc=None, out_dir=OUT_DIR)
-    print("[OK] Live signal written to", os.path.join(OUT_DIR, "last_signal.json"))
+    # clamp
+    conf = max(0.0, min(1.0, conf))
+    out["model"]["confidence"] = conf
+    out["model"]["confidence_notes"] = influence_notes
 
-# =======================
-# ENTRY
-# =======================
+    # 8) final adjusted probabilities (note: this is heuristic weighting for display)
+    # We will present the raw model prob and an adjusted prob weighted by confidence (not altering model)
+    adjusted_prob_up = prob_up * conf + 0.5 * (1.0 - conf)  # move to 0.5 when very low confidence
+    adjusted_prob_down = 1.0 - adjusted_prob_up
+
+    out["model"]["prob_up_adjusted"] = adjusted_prob_up
+    out["model"]["prob_down_adjusted"] = adjusted_prob_down
+
+    # 9) produce human-friendly assessment
+    out["assessment"] = {
+        "statement": f"Probability UP: {adjusted_prob_up:.2%}, DOWN: {adjusted_prob_down:.2%}",
+        "signal": "UP" if adjusted_prob_up > adjusted_prob_down else "DOWN",
+    }
+
+    # 10) data snapshot for output (latest numeric values)
+    last_prices = last_row[["Gas_Close","Oil_Close"]].iloc[0].to_dict()
+    out["latest"] = {"Gas_Close": float(last_prices["Gas_Close"]), "Oil_Close": float(last_prices["Oil_Close"]), "date": str(df.index[-1].date())}
+    # storage snapshot if present
+    if storage_df is not None and not storage_df.empty:
+        out["latest"]["storage_latest"] = {"date": str(storage_df["Date"].iloc[-1].date()), "value": float(storage_df["Storage"].iloc[-1])}
+    else:
+        out["latest"]["storage_latest"] = None
+
+    return out
+
+# -------------------------
+# Outputs
+# -------------------------
+def write_outputs(result: Dict[str,Any]):
+    # human text summary
+    now = result["run_time_utc"]
+    last_date = result["latest"]["date"]
+    prob_up = result["model"]["prob_up_adjusted"]
+    prob_down = result["model"]["prob_down_adjusted"]
+    conf = result["model"]["confidence"]
+    notes = result["model"].get("confidence_notes", [])
+
+    lines = []
+    lines.append("===================================")
+    lines.append("      NATURAL GAS PRICE FORECAST")
+    lines.append("===================================")
+    lines.append(f"Run time (UTC): {now}")
+    lines.append(f"Data date     : {last_date}")
+    lines.append("")
+    lines.append("Sources fetched:")
+    for k,v in result["data"].items():
+        lines.append(f"  {k:12s}: {v}")
+    lines.append("")
+    lines.append(f"Model CV Accuracy: {result['model']['cv_mean']:.2%} ± {result['model']['cv_std']:.2%}")
+    lines.append(f"Model raw prob UP : {result['model']['prob_up_raw']:.2%}")
+    lines.append(f"Adjusted prob UP  : {prob_up:.2%}")
+    lines.append(f"Adjusted prob DOWN: {prob_down:.2%}")
+    lines.append(f"Model confidence  : {conf:.2%}")
+    if notes:
+        lines.append("Confidence notes  : " + "; ".join(notes))
+    lines.append("")
+    lines.append("Latest numeric snapshot:")
+    lines.append(f"  Gas_Close : {result['latest']['Gas_Close']}")
+    lines.append(f"  Oil_Close : {result['latest']['Oil_Close']}")
+    if result["latest"]["storage_latest"]:
+        s = result["latest"]["storage_latest"]
+        lines.append(f"  Storage(latest): {s['value']} (date {s['date']})")
+    else:
+        lines.append("  Storage(latest): NOT AVAILABLE")
+    lines.append("")
+    lines.append("Assessment:")
+    lines.append(f"  {result['assessment']['statement']}")
+    lines.append(f"  Signal: {result['assessment']['signal']}")
+    lines.append("===================================")
+
+    txt = "\n".join(lines)
+    with open(FORECAST_TXT, "w", encoding="utf-8") as f:
+        f.write(txt)
+    # JSON
+    with open(FORECAST_JSON, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2, default=str)
+
+    print(txt)  # CI log
+
+# -------------------------
+# Entrypoint
+# -------------------------
+def main():
+    try:
+        res = run_one_cycle()
+        write_outputs(res)
+        print("[OK] Outputs written:", FORECAST_TXT, FORECAST_JSON)
+    except Exception as e:
+        print("[ERROR] Run failed:", str(e))
+        # write minimal failure file
+        with open(FORECAST_TXT, "w", encoding="utf-8") as f:
+            f.write(f"FAILED: {str(e)}\n")
+        raise
+
 if __name__ == "__main__":
     main()
