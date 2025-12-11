@@ -2,18 +2,19 @@ name: Daily Gas Forecast
 
 on:
   schedule:
-    # daily at 06:30 UTC
-    - cron: '30 6 * * *'
+    - cron: '30 6 * * *'   # daily at 06:30 UTC
   workflow_dispatch:
 
 jobs:
   run-forecast:
     runs-on: ubuntu-latest
+
     env:
       # If you have EIA API key, add it into repo secrets as EIA_API_KEY
       EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
       # optionally allow overriding EIA series id via secret
       EIA_STORAGE_SERIES: ${{ secrets.EIA_STORAGE_SERIES || '' }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -39,12 +40,11 @@ jobs:
           path: |
             forecast_output.txt
             forecast_output.json
-            
-    - name: Commit forecast_output.txt
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add forecast_output.txt
-        git commit -m "Auto-update forecast_output.txt" || echo "No changes to commit"
-        git push
 
+      - name: Commit forecast_output.txt
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add forecast_output.txt forecast_output.json
+          git commit -m "Auto-update forecast_output.txt" || echo "No changes to commit"
+          git push
