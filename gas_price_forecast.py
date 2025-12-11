@@ -378,59 +378,18 @@ def run_one_cycle() -> Dict[str,Any]:
 
     return out
 
-# -------------------------
-# Outputs
-# -------------------------
-def write_outputs(result: Dict[str,Any]):
-    # human text summary
-    now = result["run_time_utc"]
-    last_date = result["latest"]["date"]
-    prob_up = result["model"]["prob_up_adjusted"]
-    prob_down = result["model"]["prob_down_adjusted"]
-    conf = result["model"]["confidence"]
-    notes = result["model"].get("confidence_notes", [])
+# ============ WRITE OUTPUT FILES ============
 
-    lines = []
-    lines.append("===================================")
-    lines.append("      NATURAL GAS PRICE FORECAST")
-    lines.append("===================================")
-    lines.append(f"Run time (UTC): {now}")
-    lines.append(f"Data date     : {last_date}")
-    lines.append("")
-    lines.append("Sources fetched:")
-    for k,v in result["data"].items():
-        lines.append(f"  {k:12s}: {v}")
-    lines.append("")
-    lines.append(f"Model CV Accuracy: {result['model']['cv_mean']:.2%} ± {result['model']['cv_std']:.2%}")
-    lines.append(f"Model raw prob UP : {result['model']['prob_up_raw']:.2%}")
-    lines.append(f"Adjusted prob UP  : {prob_up:.2%}")
-    lines.append(f"Adjusted prob DOWN: {prob_down:.2%}")
-    lines.append(f"Model confidence  : {conf:.2%}")
-    if notes:
-        lines.append("Confidence notes  : " + "; ".join(notes))
-    lines.append("")
-    lines.append("Latest numeric snapshot:")
-    lines.append(f"  Gas_Close : {result['latest']['Gas_Close']}")
-    lines.append(f"  Oil_Close : {result['latest']['Oil_Close']}")
-    if result["latest"]["storage_latest"]:
-        s = result["latest"]["storage_latest"]
-        lines.append(f"  Storage(latest): {s['value']} (date {s['date']})")
-    else:
-        lines.append("  Storage(latest): NOT AVAILABLE")
-    lines.append("")
-    lines.append("Assessment:")
-    lines.append(f"  {result['assessment']['statement']}")
-    lines.append(f"  Signal: {result['assessment']['signal']}")
-    lines.append("===================================")
+# Safety defaults — falls einzelne Werte nicht vorhanden sind
+prob_up_raw = locals().get("prob_up_raw", 0.5)
+prob_up_adj = locals().get("prob_up_adj", prob_up_raw)
+confidence  = locals().get("model_confidence", 0.0)
+data_date   = locals().get("data_date", "N/A")
+now_utc     = locals().get("now_utc", "N/A")
 
-    # ============ WRITE OUTPUT FILES ============
-
-# Ensure variables exist
-prob_up_raw = result.get("prob_up_raw", 0.5)
-prob_up_adj = result.get("prob_up_adj", prob_up_raw)
 prob_down_adj = 1 - prob_up_adj
-confidence = result.get("confidence", 0.0)
 
+# -------- TXT OUTPUT --------
 with open("forecast_output.txt", "w") as f:
     f.write("===================================\n")
     f.write("  NATURAL GAS PRICE FORECAST\n")
@@ -444,27 +403,25 @@ with open("forecast_output.txt", "w") as f:
     f.write(f"  Adjusted prob DOWN: {prob_down_adj:.2%}\n")
     f.write(f"  Model confidence  : {confidence:.2%}\n\n")
 
-    if prob_up_adj > 0.5:
-        f.write("Signal: UP\n")
-    else:
-        f.write("Signal: DOWN\n")
+    signal = "UP" if prob_up_adj > 0.5 else "DOWN"
+    f.write(f"Signal: {signal}\n")
 
-# JSON version
+# -------- JSON OUTPUT --------
 json.dump(
     {
         "timestamp_utc": now_utc,
+        "data_date": data_date,
         "prob_up_raw": prob_up_raw,
         "prob_up_adj": prob_up_adj,
         "prob_down_adj": prob_down_adj,
         "confidence": confidence,
-        "signal": "UP" if prob_up_adj > 0.5 else "DOWN",
+        "signal": signal,
     },
     open("forecast_output.json", "w"),
     indent=2
 )
 
 print("[OK] Outputs written: forecast_output.txt forecast_output.json")
-
 
 # -------------------------
 # Entrypoint
