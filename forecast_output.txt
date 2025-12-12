@@ -1,15 +1,28 @@
 ===================================
       NATURAL GAS PRICE FORECAST
 ===================================
-Datum: 2025-11-27 15:13:55.095274 UTC
+Run time (UTC): 2025-12-12 09:32:11 UTC
+Data date     : 2025-12-12
 
-Eingabewerte (0–10 Skala):
-  EIA Storage         : 3935.00  [aktuell vom unbekannt]
-  US Production       : 94.80  [aktuell vom unbekannt]
-  LNG Feedgas         : 0.00  [keine neue Meldung, letzte Woche]
-  Futures Curve       : 0.00  [Platzhalter]
-  COT Managed Money   : 0.00  [Platzhalter]
+Sources fetched:
+  prices_gas  : yahoo:NG=F
+  prices_oil  : yahoo:CL=F
+  storage     : no_loader_fn
+  feedgas     : no_loader_fn
+model_cv     : 51.07% ± 1.89%
 
-Gewichteter Score: 5997.30
-Wahrscheinlichkeit, dass Gaspreis steigt: 100.0%
+Model raw prob UP : 56.46%
+Adjusted prob UP  : 52.71%
+Adjusted prob DOWN: 47.29%
+Model confidence  : 83.60%
+Confidence notes  : storage_missing, feedgas_missing
+
+Latest numeric snapshot:
+  Gas_Close : 4.178999900817871
+  Oil_Close : 57.959999084472656
+  Storage(latest): None
+
+Assessment:
+  Probability UP: 52.71%, DOWN: 47.29%
+  Signal: UP
 ===================================

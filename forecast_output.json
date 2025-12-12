@@ -1,0 +1,54 @@
+{
+  "run_time": "2025-12-12 09:32:11 UTC",
+  "data_date": "2025-12-12",
+  "sources": {
+    "prices_gas": "yahoo:NG=F",
+    "prices_oil": "yahoo:CL=F",
+    "storage": "no_loader_fn",
+    "feedgas": "no_loader_fn"
+  },
+  "meta": {
+    "sources": {
+      "storage": "no_loader_fn",
+      "feedgas": "no_loader_fn"
+    },
+    "notes": [
+      "storage_missing",
+      "feedgas_missing"
+    ],
+    "rows_after": 2754
+  },
+  "prob_up_raw": 0.564589152711269,
+  "prob_up_adj": 0.5271274441387329,
+  "prob_down_adj": 0.4728725558612671,
+  "confidence": 0.836,
+  "model_cv_mean": 0.5106753812636166,
+  "model_cv_std": 0.018872686560093874,
+  "numeric_snapshot": {
+    "Gas_Close": 4.178999900817871,
+    "Oil_Close": 57.959999084472656,
+    "Storage_latest": null
+  },
+  "notes": [
+    "storage_missing",
+    "feedgas_missing"
+  ],
+  "signal": "UP",
+  "perm_importance": {
+    "Gas_Return_lag1": 0.05600000000000005,
+    "Oil_Return_lag1": 0.040000000000000036,
+    "Gas_Return_lag2": 0.04800000000000004,
+    "Oil_Return_lag2": 0.016000000000000014,
+    "Gas_Return_lag3": 0.04400000000000004,
+    "Oil_Return_lag3": 0.07200000000000006,
+    "Gas_Return_lag4": 0.06800000000000006,
+    "Oil_Return_lag4": 0.052000000000000046,
+    "Gas_Return_lag5": 0.08800000000000008,
+    "Oil_Return_lag5": 0.05600000000000005,
+    "Storage_Surprise_Z": 0.0,
+    "LNG_Feedgas_Surprise_Z": 0.0,
+    "Momentum5": 0.04800000000000004,
+    "SMA10": 0.028000000000000025,
+    "Volatility5": 0.04400000000000004
+  }
+}
