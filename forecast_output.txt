@@ -1,7 +1,7 @@
 ===================================
       NATURAL GAS PRICE FORECAST
 ===================================
-Run time (UTC): 2025-12-13 06:51:37 UTC
+Run time (UTC): 2025-12-14 06:51:20 UTC
 Data date     : 2025-12-12
 
 Sources fetched:
