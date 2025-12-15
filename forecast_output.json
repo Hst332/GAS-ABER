@@ -1,15 +1,15 @@
 {
-  "run_time": "2025-12-15 09:54:37 UTC",
+  "run_time": "2025-12-15 10:46:01 UTC",
   "data_date": "2025-12-15",
   "sources": {
     "prices_gas": "yahoo:NG=F",
     "prices_oil": "yahoo:CL=F",
-    "storage": "error:'float' object has no attribute 'columns'",
+    "storage": "no_loader_fn",
     "feedgas": "error:'NoneType' object has no attribute 'columns'"
   },
   "meta": {
     "sources": {
-      "storage": "error:'float' object has no attribute 'columns'",
+      "storage": "no_loader_fn",
       "feedgas": "error:'NoneType' object has no attribute 'columns'"
     },
     "notes": [
@@ -25,8 +25,8 @@
   "model_cv_mean": 0.5093681917211328,
   "model_cv_std": 0.019843655837447842,
   "numeric_snapshot": {
-    "Gas_Close": 4.125,
-    "Oil_Close": 57.47999954223633,
+    "Gas_Close": 4.135000228881836,
+    "Oil_Close": 57.349998474121094,
     "Storage_latest": null
   },
   "notes": [

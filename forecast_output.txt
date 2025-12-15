@@ -1,13 +1,13 @@
 ===================================
       NATURAL GAS PRICE FORECAST
 ===================================
-Run time (UTC): 2025-12-15 09:54:37 UTC
+Run time (UTC): 2025-12-15 10:46:01 UTC
 Data date     : 2025-12-15
 
 Sources fetched:
   prices_gas  : yahoo:NG=F
   prices_oil  : yahoo:CL=F
-  storage     : error:'float' object has no attribute 'columns'
+  storage     : no_loader_fn
   feedgas     : error:'NoneType' object has no attribute 'columns'
 model_cv     : 50.94% ± 1.98%
 
@@ -18,8 +18,8 @@ Model confidence  : 83.60%
 Confidence notes  : storage_missing, feedgas_missing
 
 Latest numeric snapshot:
-  Gas_Close : 4.125
-  Oil_Close : 57.47999954223633
+  Gas_Close : 4.135000228881836
+  Oil_Close : 57.349998474121094
   Storage(latest): None
 
 Assessment:
