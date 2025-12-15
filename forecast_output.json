@@ -1,16 +1,16 @@
 {
-  "run_time": "2025-12-15 06:57:04 UTC",
+  "run_time": "2025-12-15 09:43:12 UTC",
   "data_date": "2025-12-15",
   "sources": {
     "prices_gas": "yahoo:NG=F",
     "prices_oil": "yahoo:CL=F",
-    "storage": "no_loader_fn",
-    "feedgas": "no_loader_fn"
+    "storage": "error:name 'load_eia_storage' is not defined",
+    "feedgas": "error:name 'load_feedgas' is not defined"
   },
   "meta": {
     "sources": {
-      "storage": "no_loader_fn",
-      "feedgas": "no_loader_fn"
+      "storage": "error:name 'load_eia_storage' is not defined",
+      "feedgas": "error:name 'load_feedgas' is not defined"
     },
     "notes": [
       "storage_missing",
@@ -25,8 +25,8 @@
   "model_cv_mean": 0.5093681917211328,
   "model_cv_std": 0.019843655837447842,
   "numeric_snapshot": {
-    "Gas_Close": 4.150000095367432,
-    "Oil_Close": 57.72999954223633,
+    "Gas_Close": 4.118000030517578,
+    "Oil_Close": 57.470001220703125,
     "Storage_latest": null
   },
   "notes": [
