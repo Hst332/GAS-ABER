@@ -240,9 +240,15 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
         # merge safe: convert index to column for joining
         right = storage_df.copy()
         # create left column
-        left = df.reset_index().rename(columns={"index": "merge_Date"})
-        merged = left.merge(right, on="merge_Date", how="left")
-        merged = merged.set_index("merge_Date")
+       left = df.reset_index()
+       if "Date" in left.columns:
+         left = left.rename(columns={"Date": "merge_Date"})
+       elif "index" in left.columns:
+        left = left.rename(columns={"index": "merge_Date"})
+
+       merged = left.merge(right, on="merge_Date", how="left")
+       merged = merged.set_index("merge_Date")
+
         # reindex name to original (DatetimeIndex may have tz); ensure names consistent
         merged.index.name = df.index.name or None
         df = merged
@@ -263,7 +269,12 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
         feedgas_df["LNG_Feedgas_Surprise_Z"] = scale_robust_z(feedgas_df["Feedgas_Surprise"].fillna(0.0), window=52)
 
         feedgas_df = feedgas_df[["Date", "LNG_Feedgas_Surprise_Z"]].rename(columns={"Date": "merge_Date"})
-        left = df.reset_index().rename(columns={"index": "merge_Date"})
+        left = df.reset_index()
+        if "Date" in left.columns:
+         left = left.rename(columns={"Date": "merge_Date"})
+        elif "index" in left.columns:
+         left = left.rename(columns={"index": "merge_Date"})
+
         merged = left.merge(feedgas_df, on="merge_Date", how="left").set_index("merge_Date")
         df = merged
         df["LNG_Feedgas_Surprise_Z"] = df["LNG_Feedgas_Surprise_Z"].fillna(0.0)
