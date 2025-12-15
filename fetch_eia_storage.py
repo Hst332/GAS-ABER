@@ -38,15 +38,22 @@ if __name__ == "__main__":
 
 # === Compatibility wrapper for gas_price_forecast.py ===
 import pandas as pd
-from datetime import datetime
 
-def load_storage_data(*args, **kwargs):
-    val = fetch_storage()
+def load_lng_feedgas(*args, **kwargs):
+    parsed = fetch_from_urls()
+    source = "eia_live"
+    if not parsed:
+        parsed = read_cache()
+        source = "cache"
+    if not parsed:
+        return None
+
+    val, date_iso = parsed
     df = pd.DataFrame(
-        {"Storage": [val]},
-        index=[pd.Timestamp(datetime.utcnow().date())]
+        {"Feedgas": [val]},
+        index=[pd.Timestamp(date_iso)]
     )
-    df.attrs["source"] = "eia_live"
+    df.attrs["source"] = source
     return df
 
 
