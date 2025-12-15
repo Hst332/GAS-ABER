@@ -140,6 +140,7 @@ if __name__ == "__main__":
 
 # === Compatibility wrapper ===
 import pandas as pd
+from datetime import datetime
 
 def load_lng_feedgas(*args, **kwargs):
     parsed = fetch_from_urls()
@@ -150,18 +151,18 @@ def load_lng_feedgas(*args, **kwargs):
         source = "cache"
 
     if not parsed:
-        return pd.DataFrame(
-            {"Feedgas": []},
-            index=pd.to_datetime([])
-        )
+        # return EMPTY but SCHEMA-CORRECT dataframe
+        return pd.DataFrame(columns=["Date", "Feedgas"])
 
     val, date_iso = parsed
-    df = pd.DataFrame(
-        {"Feedgas": [val]},
-        index=[pd.Timestamp(date_iso)]
-    )
+    date = pd.Timestamp(date_iso)
+
+    df = pd.DataFrame({
+        "Date": [date],
+        "Feedgas": [val],
+    })
+
     df.attrs["source"] = source
     return df
-
 
 
