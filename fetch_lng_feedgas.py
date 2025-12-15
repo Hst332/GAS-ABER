@@ -137,3 +137,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# === Compatibility wrapper ===
+def load_lng_feedgas(*args, **kwargs):
+    return load_feedgas(*args, **kwargs)
+
