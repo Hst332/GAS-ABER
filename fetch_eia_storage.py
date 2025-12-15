@@ -38,5 +38,6 @@ if __name__ == "__main__":
 
 # === Compatibility wrapper for gas_price_forecast.py ===
 def load_storage_data(*args, **kwargs):
-    return load_eia_storage(*args, **kwargs)  # oder wie die echte Funktion heißt
+    return fetch_storage()
+
 
