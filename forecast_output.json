@@ -1,16 +1,16 @@
 {
-  "run_time": "2025-12-15 10:46:01 UTC",
+  "run_time": "2025-12-15 13:37:41 UTC",
   "data_date": "2025-12-15",
   "sources": {
     "prices_gas": "yahoo:NG=F",
     "prices_oil": "yahoo:CL=F",
-    "storage": "no_loader_fn",
-    "feedgas": "error:'NoneType' object has no attribute 'columns'"
+    "storage": "error:'Date'",
+    "feedgas": "error:'Date'"
   },
   "meta": {
     "sources": {
-      "storage": "no_loader_fn",
-      "feedgas": "error:'NoneType' object has no attribute 'columns'"
+      "storage": "error:'Date'",
+      "feedgas": "error:'Date'"
     },
     "notes": [
       "storage_missing",
@@ -18,15 +18,15 @@
     ],
     "rows_after": 2755
   },
-  "prob_up_raw": 0.4760577950303171,
-  "prob_up_adj": 0.4899442739127331,
-  "prob_down_adj": 0.5100557260872669,
+  "prob_up_raw": 0.4813173998045996,
+  "prob_up_adj": 0.49215330791793177,
+  "prob_down_adj": 0.5078466920820682,
   "confidence": 0.836,
-  "model_cv_mean": 0.5093681917211328,
-  "model_cv_std": 0.019843655837447842,
+  "model_cv_mean": 0.5089324618736383,
+  "model_cv_std": 0.020325758239112167,
   "numeric_snapshot": {
-    "Gas_Close": 4.135000228881836,
-    "Oil_Close": 57.349998474121094,
+    "Gas_Close": 4.0960001945495605,
+    "Oil_Close": 57.29999923706055,
     "Storage_latest": null
   },
   "notes": [
@@ -35,20 +35,20 @@
   ],
   "signal": "DOWN",
   "perm_importance": {
-    "Gas_Return_lag1": 0.07200000000000006,
-    "Oil_Return_lag1": 0.028000000000000025,
-    "Gas_Return_lag2": 0.07200000000000006,
-    "Oil_Return_lag2": 0.052000000000000046,
+    "Gas_Return_lag1": 0.06800000000000006,
+    "Oil_Return_lag1": 0.03200000000000003,
+    "Gas_Return_lag2": 0.06000000000000005,
+    "Oil_Return_lag2": 0.03200000000000003,
     "Gas_Return_lag3": 0.05600000000000005,
-    "Oil_Return_lag3": 0.05600000000000005,
-    "Gas_Return_lag4": 0.06400000000000006,
-    "Oil_Return_lag4": 0.06400000000000006,
-    "Gas_Return_lag5": 0.03600000000000003,
-    "Oil_Return_lag5": 0.04400000000000004,
+    "Oil_Return_lag3": 0.04800000000000004,
+    "Gas_Return_lag4": 0.052000000000000046,
+    "Oil_Return_lag4": 0.06800000000000006,
+    "Gas_Return_lag5": 0.04400000000000004,
+    "Oil_Return_lag5": 0.03200000000000003,
     "Storage_Surprise_Z": 0.0,
     "LNG_Feedgas_Surprise_Z": 0.0,
-    "Momentum5": 0.040000000000000036,
-    "SMA10": 0.03600000000000003,
-    "Volatility5": 0.03600000000000003
+    "Momentum5": 0.04400000000000004,
+    "SMA10": 0.03200000000000003,
+    "Volatility5": 0.06000000000000005
   }
 }
