@@ -42,10 +42,14 @@ from datetime import datetime
 
 def load_storage_data(*args, **kwargs):
     value = fetch_storage()
-    df = pd.DataFrame(
-        {"Storage": [value]},
-        index=[pd.Timestamp(datetime.utcnow().date())]
-    )
+    date = pd.Timestamp(datetime.utcnow().date())
+
+    df = pd.DataFrame({
+        "Date": [date],
+        "Storage": [value],
+    })
+
     df.attrs["source"] = "eia_live"
     return df
+
 
