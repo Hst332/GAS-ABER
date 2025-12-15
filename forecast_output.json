@@ -1,38 +1,35 @@
 {
-  "run_time": "2025-12-15 13:37:41 UTC",
+  "run_time": "2025-12-15 15:21:28 UTC",
   "data_date": "2025-12-15",
   "sources": {
     "prices_gas": "yahoo:NG=F",
     "prices_oil": "yahoo:CL=F",
-    "storage": "error:'Date'",
-    "feedgas": "error:'Date'"
+    "storage": "ok",
+    "feedgas": "ok"
   },
   "meta": {
     "sources": {
-      "storage": "error:'Date'",
-      "feedgas": "error:'Date'"
+      "storage": "ok",
+      "feedgas": "ok"
     },
     "notes": [
-      "storage_missing",
-      "feedgas_missing"
+      "storage_loaded",
+      "feedgas_loaded"
     ],
     "rows_after": 2755
   },
   "prob_up_raw": 0.4813173998045996,
-  "prob_up_adj": 0.49215330791793177,
-  "prob_down_adj": 0.5078466920820682,
-  "confidence": 0.836,
+  "prob_up_adj": 0.4813173998045996,
+  "prob_down_adj": 0.5186826001954004,
+  "confidence": 1.0,
   "model_cv_mean": 0.5089324618736383,
   "model_cv_std": 0.020325758239112167,
   "numeric_snapshot": {
-    "Gas_Close": 4.0960001945495605,
-    "Oil_Close": 57.29999923706055,
-    "Storage_latest": null
+    "Gas_Close": 4.019000053405762,
+    "Oil_Close": 56.84000015258789,
+    "Storage_latest": 3746.0
   },
-  "notes": [
-    "storage_missing",
-    "feedgas_missing"
-  ],
+  "notes": [],
   "signal": "DOWN",
   "perm_importance": {
     "Gas_Return_lag1": 0.06800000000000006,
