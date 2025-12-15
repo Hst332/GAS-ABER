@@ -138,7 +138,14 @@ def main():
 if __name__ == "__main__":
     main()
 
-# === Compatibility wrapper ===
+# === Compatibility wrapper for gas_price_forecast.py ===
 def load_lng_feedgas(*args, **kwargs):
-    return load_feedgas(*args, **kwargs)
+    parsed = fetch_from_urls()
+    if parsed:
+        return parsed
+    cached = read_cache()
+    if cached:
+        return cached
+    return None
+
 
