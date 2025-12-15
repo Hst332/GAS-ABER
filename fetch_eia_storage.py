@@ -37,7 +37,17 @@ if __name__ == "__main__":
     print(total)
 
 # === Compatibility wrapper for gas_price_forecast.py ===
+import pandas as pd
+from datetime import datetime
+
 def load_storage_data(*args, **kwargs):
-    return fetch_storage()
+    val = fetch_storage()
+    df = pd.DataFrame(
+        {"Storage": [val]},
+        index=[pd.Timestamp(datetime.utcnow().date())]
+    )
+    df.attrs["source"] = "eia_live"
+    return df
+
 
 
