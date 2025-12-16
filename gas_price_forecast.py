@@ -221,105 +221,91 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     # Target: NEXT DAY direction (no leak)
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
 
-    # Optional: storage surprise
+       # Optional: storage surprise
     storage_df, storage_note = load_storage_optional()
     meta["sources"]["storage"] = storage_note
 
-if storage_df is None:
-    # storage missing → neutral feature
-    df["Storage_Surprise_Z"] = 0.0
-    meta["notes"].append("storage_missing")
-else:
-    # compute change and expectation and surprise
-    storage_df["Storage_Change"] = storage_df["Storage"].diff()
-    storage_df["Storage_Exp"] = storage_df["Storage_Change"].rolling(4).mean()
-    storage_df["Storage_Surprise"] = (
-        storage_df["Storage_Change"] - storage_df["Storage_Exp"]
-    ).shift(1)
+    if storage_df is None:
+        df["Storage_Surprise_Z"] = 0.0
+        meta["notes"].append("storage_missing")
+    else:
+        storage_df["Storage_Change"] = storage_df["Storage"].diff()
+        storage_df["Storage_Exp"] = storage_df["Storage_Change"].rolling(4).mean()
+        storage_df["Storage_Surprise"] = (
+            storage_df["Storage_Change"] - storage_df["Storage_Exp"]
+        ).shift(1)
 
-    storage_df["Storage_Surprise_Z"] = scale_robust_z(
-        storage_df["Storage_Surprise"].fillna(0.0), window=52
-    )
+        storage_df["Storage_Surprise_Z"] = scale_robust_z(
+            storage_df["Storage_Surprise"].fillna(0.0), window=52
+        )
 
-    storage_df = storage_df[["Date", "Storage_Surprise_Z"]].rename(
-        columns={"Date": "merge_Date"}
-    )
+        storage_df = storage_df[["Date", "Storage_Surprise_Z"]].rename(
+            columns={"Date": "merge_Date"}
+        )
 
-    left = df.reset_index().rename(columns={"index": "merge_Date"})
-    merged = left.merge(storage_df, on="merge_Date", how="left")
-    df = merged.set_index("merge_Date")
-    df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].fillna(0.0)
-    meta["notes"].append("storage_loaded")
+        left = df.reset_index().rename(columns={"index": "merge_Date"})
+        df = (
+            left.merge(storage_df, on="merge_Date", how="left")
+            .set_index("merge_Date")
+        )
+        df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].ffill().fillna(0.0)
+        meta["notes"].append("storage_loaded")
 
-    if "Date" in left.columns:
-         left = left.rename(columns={"Date": "merge_Date"})
-    elif "index" in left.columns:
-         left = left.rename(columns={"index": "merge_Date"})
-
-         merged = left.merge(right, on="merge_Date", how="left")
-         merged = merged.set_index("merge_Date")
-         df["Days_Since_Storage"] = (
-         df["Storage_Surprise_Z"]
-         .ne(0)
-         .astype(int)
-         .groupby((df["Storage_Surprise_Z"] != 0).cumsum())
-         .cumcount()
-          )
-         df["Days_Since_Storage"] = df["Days_Since_Storage"].clip(0, 7)
-
-
-         # reindex name to original (DatetimeIndex may have tz); ensure names consistent
-         merged.index.name = df.index.name or None
-         df = merged
-         df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].ffill().fillna(0.0)
-         meta["notes"].append("storage_loaded")
+        df["Days_Since_Storage"] = (
+            df["Storage_Surprise_Z"]
+            .ne(0)
+            .astype(int)
+            .groupby((df["Storage_Surprise_Z"] != 0).cumsum())
+            .cumcount()
+            .clip(0, 7)
+        )
 
     # Optional: feedgas surprise
     feedgas_df, feedgas_note = load_feedgas_optional()
     meta["sources"]["feedgas"] = feedgas_note
+
     if feedgas_df is None:
         df["LNG_Feedgas_Surprise_Z"] = 0.0
-        if feedgas_note != "module_missing":
-            meta["notes"].append("feedgas_missing")
-        if "Storage_Surprise_Z" not in df.columns:
-            df["Storage_Surprise_Z"] = 0.0
+        meta["notes"].append("feedgas_missing")
     else:
         feedgas_df["Feedgas_Change"] = feedgas_df["Feedgas"].diff()
         feedgas_df["Feedgas_Exp"] = feedgas_df["Feedgas_Change"].rolling(4).mean()
-        feedgas_df["Feedgas_Surprise"] = (feedgas_df["Feedgas_Change"] - feedgas_df["Feedgas_Exp"]).shift(1)
-        feedgas_df["LNG_Feedgas_Surprise_Z"] = scale_robust_z(feedgas_df["Feedgas_Surprise"].fillna(0.0), window=52)
+        feedgas_df["Feedgas_Surprise"] = (
+            feedgas_df["Feedgas_Change"] - feedgas_df["Feedgas_Exp"]
+        ).shift(1)
 
-        feedgas_df = feedgas_df[["Date", "LNG_Feedgas_Surprise_Z"]].rename(columns={"Date": "merge_Date"})
-        left = df.reset_index()
-        if "Date" in left.columns:
-         left = left.rename(columns={"Date": "merge_Date"})
-        elif "index" in left.columns:
-         left = left.rename(columns={"index": "merge_Date"})
+        feedgas_df["LNG_Feedgas_Surprise_Z"] = scale_robust_z(
+            feedgas_df["Feedgas_Surprise"].fillna(0.0), window=52
+        )
 
-         merged = left.merge(feedgas_df, on="merge_Date", how="left").set_index("merge_Date")
-         df = merged
-         df["LNG_Feedgas_Surprise_Z"] = df["LNG_Feedgas_Surprise_Z"].ffill().fillna(0.0)
-         meta["notes"].append("feedgas_loaded")
-         
-         df["Days_Since_Feedgas"] = (
-             df["LNG_Feedgas_Surprise_Z"]
-                 .ne(0)
-                 .astype(int)
-                 .groupby((df["LNG_Feedgas_Surprise_Z"] != 0).cumsum())
-                 .cumcount()
-         )
-         
-         df["Days_Since_Feedgas"] = df["Days_Since_Feedgas"].clip(0, 7)
- 
-         # final cleanup: ensure datetime index and drop rows with NA in core features
-        if not isinstance(df.index, pd.DatetimeIndex):
-         # attempt to set index back to original dates if present
-        if "merge_Date" in df.columns:
-         df.index = pd.to_datetime(df.index)
-         # drop rows where target is NA or core cols missing
-         df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
-         meta["rows_after"] = len(df)
-         return df, meta
+        feedgas_df = feedgas_df[["Date", "LNG_Feedgas_Surprise_Z"]].rename(
+            columns={"Date": "merge_Date"}
+        )
+
+        left = df.reset_index().rename(columns={"index": "merge_Date"})
+        df = (
+            left.merge(feedgas_df, on="merge_Date", how="left")
+            .set_index("merge_Date")
+        )
+        df["LNG_Feedgas_Surprise_Z"] = (
+            df["LNG_Feedgas_Surprise_Z"].ffill().fillna(0.0)
+        )
+        meta["notes"].append("feedgas_loaded")
+
+        df["Days_Since_Feedgas"] = (
+            df["LNG_Feedgas_Surprise_Z"]
+            .ne(0)
+            .astype(int)
+            .groupby((df["LNG_Feedgas_Surprise_Z"] != 0).cumsum())
+            .cumcount()
+            .clip(0, 7)
+        )
+
+    # final cleanup
+    df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
+    meta["rows_after"] = len(df)
+    return df, meta
+
 
 # -----------------------
 # Model training + CV
