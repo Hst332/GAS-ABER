@@ -481,6 +481,10 @@ def main():
         feature_cols.append("Storage_Surprise_Z")
     if "LNG_Feedgas_Surprise_Z" in df.columns:
         feature_cols.append("LNG_Feedgas_Surprise_Z")
+    if "Storage_Surprise_Z" in df.columns:
+        feature_cols += ["Storage_Surprise_Z", "Days_Since_Storage"]
+    if "LNG_Feedgas_Surprise_Z" in df.columns:
+        feature_cols += ["LNG_Feedgas_Surprise_Z", "Days_Since_Feedgas"]
     # also technical momentum / vol
     for extra in ("Momentum5","SMA10","Volatility5"):
         if extra in df.columns:
