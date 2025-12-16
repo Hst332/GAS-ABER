@@ -361,6 +361,17 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     df["Cold_Weather_Proxy_Z"] = scale_robust_z(
         df["Cold_Weather_Proxy"].fillna(0.0), window=52
     )
+    # --- Phase 2.4: Regime Interactions (Weather, Storage, LNG) ---
+
+    # Interaction Weather + Storage
+    df["Weather_Storage_Interaction"] = df["Cold_Weather_Proxy_Z"] * df["Storage_Surprise_Z"]
+
+    # Interaction Winter + LNG Feedgas
+    df["Winter_LNG_Interaction"] = df["Cold_Weather_Proxy_Z"] * df["LNG_Feedgas_Surprise_Z"]
+
+    # Interaction between Storage and LNG (if Feedgas available)
+    if "LNG_Feedgas_Surprise_Z" in df.columns:
+        df["Storage_LNG_Interaction"] = df["Storage_Surprise_Z"] * df["LNG_Feedgas_Surprise_Z"]
 
     # final cleanup
     df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
