@@ -320,8 +320,6 @@ else:
     df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
     meta["rows_after"] = len(df)
     return df, meta
- 
-    
 
 # -----------------------
 # Model training + CV
