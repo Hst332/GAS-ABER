@@ -254,6 +254,8 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
             left.merge(storage_df, on="merge_Date", how="left")
             .set_index("merge_Date")
         )
+     if "Storage_Surprise_Z" not in df.columns:
+        df["Storage_Surprise_Z"] = 0.0
         df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].ffill().fillna(0.0)
         meta["notes"].append("storage_loaded")
 
