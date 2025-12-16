@@ -222,27 +222,35 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
 
     # Optional: storage surprise
-    storage_df, storage_note = load_storage_optional()
-    meta["sources"]["storage"] = storage_note
-    if storage_df is None:
-         # safety: ensure Storage_Surprise_Z always exists before use
-    if "Storage_Surprise_Z" not in df.columns:
-         df["Storage_Surprise_Z"] = 0.0
-         meta["notes"].append("storage_missing")
-    else:
-        # compute change and expectation and surprise
-        storage_df["Storage_Change"] = storage_df["Storage"].diff()
-        storage_df["Storage_Exp"] = storage_df["Storage_Change"].rolling(4).mean()
-        storage_df["Storage_Surprise"] = (storage_df["Storage_Change"] - storage_df["Storage_Exp"]).shift(1)
-        # robust scale and merge
-        storage_df["Storage_Surprise_Z"] = scale_robust_z(storage_df["Storage_Surprise"].fillna(0.0), window=52)
-        # merge: align by Date -> we will join on date index; df is indexed by Date (DatetimeIndex)
-        storage_df = storage_df[["Date", "Storage_Surprise_Z"]]
-        storage_df = storage_df.rename(columns={"Date": "merge_Date"})
-        # merge safe: convert index to column for joining
-        right = storage_df.copy()
-        # create left column
-        left = df.reset_index()
+ storage_df, storage_note = load_storage_optional()
+meta["sources"]["storage"] = storage_note
+
+if storage_df is None:
+    # storage missing → neutral feature
+    df["Storage_Surprise_Z"] = 0.0
+    meta["notes"].append("storage_missing")
+else:
+    # compute change and expectation and surprise
+    storage_df["Storage_Change"] = storage_df["Storage"].diff()
+    storage_df["Storage_Exp"] = storage_df["Storage_Change"].rolling(4).mean()
+    storage_df["Storage_Surprise"] = (
+        storage_df["Storage_Change"] - storage_df["Storage_Exp"]
+    ).shift(1)
+
+    storage_df["Storage_Surprise_Z"] = scale_robust_z(
+        storage_df["Storage_Surprise"].fillna(0.0), window=52
+    )
+
+    storage_df = storage_df[["Date", "Storage_Surprise_Z"]].rename(
+        columns={"Date": "merge_Date"}
+    )
+
+    left = df.reset_index().rename(columns={"index": "merge_Date"})
+    merged = left.merge(storage_df, on="merge_Date", how="left")
+    df = merged.set_index("merge_Date")
+    df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].fillna(0.0)
+    meta["notes"].append("storage_loaded")
+
         if "Date" in left.columns:
          left = left.rename(columns={"Date": "merge_Date"})
         elif "index" in left.columns:
