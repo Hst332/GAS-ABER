@@ -225,6 +225,8 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     storage_df, storage_note = load_storage_optional()
     meta["sources"]["storage"] = storage_note
     if storage_df is None:
+     # safety: ensure Storage_Surprise_Z always exists before use
+    if "Storage_Surprise_Z" not in df.columns:
         df["Storage_Surprise_Z"] = 0.0
         meta["notes"].append("storage_missing")
     else:
