@@ -343,6 +343,14 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
 
     # Apply winter weighting to storage
     df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"] * df["Winter_Factor"]
+    # --- Phase 2.2 B: LNG regime weighting ---
+
+    lng_active = (df["Days_Since_Feedgas"] < 3).astype(int)
+    df["LNG_Regime_Factor"] = 1.0 + 0.5 * lng_active
+
+    df["LNG_Feedgas_Surprise_Z"] = (
+        df["LNG_Feedgas_Surprise_Z"] * df["LNG_Regime_Factor"]
+    )
 
     # final cleanup
     df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
