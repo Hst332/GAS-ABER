@@ -1,5 +1,5 @@
 {
-  "run_time": "2025-12-16 05:45:58 UTC",
+  "run_time": "2025-12-16 12:46:28 UTC",
   "data_date": "2025-12-16",
   "sources": {
     "prices_gas": "yahoo:NG=F",
@@ -18,34 +18,36 @@
     ],
     "rows_after": 2756
   },
-  "prob_up_raw": 0.4927426092987403,
-  "prob_up_adj": 0.4927426092987403,
-  "prob_down_adj": 0.5072573907012596,
+  "prob_up_raw": 0.4971908528982519,
+  "prob_up_adj": 0.4971908528982519,
+  "prob_down_adj": 0.5028091471017482,
   "confidence": 1.0,
-  "model_cv_mean": 0.5093681917211329,
-  "model_cv_std": 0.015368359118560687,
+  "model_cv_mean": 0.5084967320261438,
+  "model_cv_std": 0.01213802899972473,
   "numeric_snapshot": {
-    "Gas_Close": 3.944999933242798,
-    "Oil_Close": 56.369998931884766,
+    "Gas_Close": 3.930999994277954,
+    "Oil_Close": 55.79999923706055,
     "Storage_latest": 3746.0
   },
   "notes": [],
   "signal": "DOWN",
   "perm_importance": {
     "Gas_Return_lag1": 0.07600000000000007,
-    "Oil_Return_lag1": 0.04800000000000004,
-    "Gas_Return_lag2": 0.05600000000000005,
-    "Oil_Return_lag2": 0.03600000000000003,
-    "Gas_Return_lag3": 0.05600000000000005,
-    "Oil_Return_lag3": 0.09200000000000008,
-    "Gas_Return_lag4": 0.07200000000000006,
+    "Oil_Return_lag1": 0.06800000000000006,
+    "Gas_Return_lag2": 0.04800000000000004,
+    "Oil_Return_lag2": 0.04400000000000004,
+    "Gas_Return_lag3": 0.052000000000000046,
+    "Oil_Return_lag3": 0.08000000000000007,
+    "Gas_Return_lag4": 0.05600000000000005,
     "Oil_Return_lag4": 0.07200000000000006,
-    "Gas_Return_lag5": 0.06800000000000006,
-    "Oil_Return_lag5": 0.06400000000000006,
+    "Gas_Return_lag5": 0.05600000000000005,
+    "Oil_Return_lag5": 0.06000000000000005,
     "Storage_Surprise_Z": 0.0,
     "LNG_Feedgas_Surprise_Z": 0.0,
+    "Days_Since_Storage": 0.0,
+    "Days_Since_Feedgas": 0.0,
     "Momentum5": 0.06000000000000005,
-    "SMA10": 0.03600000000000003,
-    "Volatility5": 0.06400000000000006
+    "SMA10": 0.02400000000000002,
+    "Volatility5": 0.040000000000000036
   }
 }
