@@ -271,6 +271,8 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
         df["LNG_Feedgas_Surprise_Z"] = 0.0
         if feedgas_note != "module_missing":
             meta["notes"].append("feedgas_missing")
+        if "Storage_Surprise_Z" not in df.columns:
+            df["Storage_Surprise_Z"] = 0.0
     else:
         feedgas_df["Feedgas_Change"] = feedgas_df["Feedgas"].diff()
         feedgas_df["Feedgas_Exp"] = feedgas_df["Feedgas_Change"].rolling(4).mean()
