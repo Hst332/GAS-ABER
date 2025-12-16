@@ -288,14 +288,17 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
         df = merged
         df["LNG_Feedgas_Surprise_Z"] = df["LNG_Feedgas_Surprise_Z"].ffill().fillna(0.0)
         meta["notes"].append("feedgas_loaded")
+        
         df["Days_Since_Feedgas"] = (
-        df["LNG_Feedgas_Surprise_Z"]
-         .ne(0)
-         .astype(int)
-         .groupby((df["LNG_Feedgas_Surprise_Z"] != 0).cumsum())
-         .cumcount()
-          )
-         df["Days_Since_Feedgas"] = df["Days_Since_Feedgas"].clip(0, 7)
+            df["LNG_Feedgas_Surprise_Z"]
+                .ne(0)
+                .astype(int)
+                .groupby((df["LNG_Feedgas_Surprise_Z"] != 0).cumsum())
+                .cumcount()
+        )
+        
+        df["Days_Since_Feedgas"] = df["Days_Since_Feedgas"].clip(0, 7)
+
     # final cleanup: ensure datetime index and drop rows with NA in core features
     if not isinstance(df.index, pd.DatetimeIndex):
         # attempt to set index back to original dates if present
