@@ -222,8 +222,8 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     df["Target"] = (df["Gas_Return"].shift(-1) > 0).astype(int)
 
     # Optional: storage surprise
- storage_df, storage_note = load_storage_optional()
-meta["sources"]["storage"] = storage_note
+    storage_df, storage_note = load_storage_optional()
+    meta["sources"]["storage"] = storage_note
 
 if storage_df is None:
     # storage missing → neutral feature
