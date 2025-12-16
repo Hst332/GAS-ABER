@@ -248,6 +248,15 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
 
         merged = left.merge(right, on="merge_Date", how="left")
         merged = merged.set_index("merge_Date")
+        df["Days_Since_Storage"] = (
+        df["Storage_Surprise_Z"]
+        .ne(0)
+        .astype(int)
+        .groupby((df["Storage_Surprise_Z"] != 0).cumsum())
+        .cumcount()
+         )
+        df["Days_Since_Storage"] = df["Days_Since_Storage"].clip(0, 7)
+
 
         # reindex name to original (DatetimeIndex may have tz); ensure names consistent
         merged.index.name = df.index.name or None
@@ -279,6 +288,14 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
         df = merged
         df["LNG_Feedgas_Surprise_Z"] = df["LNG_Feedgas_Surprise_Z"].ffill().fillna(0.0)
         meta["notes"].append("feedgas_loaded")
+        df["Days_Since_Feedgas"] = (
+           df["LNG_Feedgas_Surprise_Z"]
+           .ne(0)
+           .astype(int)
+           .groupby((df["LNG_Feedgas_Surprise_Z"] != 0).cumsum())
+           .cumcount()
+         )
+         df["Days_Since_Feedgas"] = df["Days_Since_Feedgas"].clip(0, 7)
 
     # final cleanup: ensure datetime index and drop rows with NA in core features
     if not isinstance(df.index, pd.DatetimeIndex):
@@ -289,6 +306,8 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
     meta["rows_after"] = len(df)
     return df, meta
+ 
+    
 
 # -----------------------
 # Model training + CV
