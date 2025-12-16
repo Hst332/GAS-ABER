@@ -268,11 +268,11 @@ else:
          df["Days_Since_Storage"] = df["Days_Since_Storage"].clip(0, 7)
 
 
-        # reindex name to original (DatetimeIndex may have tz); ensure names consistent
-        merged.index.name = df.index.name or None
-        df = merged
-        df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].ffill().fillna(0.0)
-        meta["notes"].append("storage_loaded")
+         # reindex name to original (DatetimeIndex may have tz); ensure names consistent
+         merged.index.name = df.index.name or None
+         df = merged
+         df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].ffill().fillna(0.0)
+         meta["notes"].append("storage_loaded")
 
     # Optional: feedgas surprise
     feedgas_df, feedgas_note = load_feedgas_optional()
