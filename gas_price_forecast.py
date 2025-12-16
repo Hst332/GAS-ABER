@@ -308,6 +308,33 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
             .cumcount()
             .clip(0, 7)
         )
+    # --- Phase 2.1: market persistence for fundamentals ---
+
+    # Storage persistence (EIA effect lasts several days)
+    if "Storage_Surprise_Z" not in df.columns:
+        df["Storage_Surprise_Z"] = 0.0
+
+    df["Days_Since_Storage"] = (
+        df["Storage_Surprise_Z"]
+        .ne(0)
+        .astype(int)
+        .groupby((df["Storage_Surprise_Z"] != 0).cumsum())
+        .cumcount()
+        .clip(0, 7)
+    )
+
+    # LNG Feedgas persistence (flow regime)
+    if "LNG_Feedgas_Surprise_Z" not in df.columns:
+        df["LNG_Feedgas_Surprise_Z"] = 0.0
+
+    df["Days_Since_Feedgas"] = (
+        df["LNG_Feedgas_Surprise_Z"]
+        .ne(0)
+        .astype(int)
+        .groupby((df["LNG_Feedgas_Surprise_Z"] != 0).cumsum())
+        .cumcount()
+        .clip(0, 7)
+    )
 
     # final cleanup
     df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
