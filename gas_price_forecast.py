@@ -351,6 +351,16 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     df["LNG_Feedgas_Surprise_Z"] = (
         df["LNG_Feedgas_Surprise_Z"] * df["LNG_Regime_Factor"]
     )
+    # --- Phase 2.3: Weather proxy via volatility & momentum ---
+
+    df["Cold_Weather_Proxy"] = (
+        df["Volatility5"].rolling(3).mean() *
+        df["Momentum5"].abs()
+    ).shift(1)
+
+    df["Cold_Weather_Proxy_Z"] = scale_robust_z(
+        df["Cold_Weather_Proxy"].fillna(0.0), window=52
+    )
 
     # final cleanup
     df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
