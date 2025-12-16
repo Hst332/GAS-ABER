@@ -242,8 +242,14 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
         storage_df = storage_df[["Date", "Storage_Surprise_Z"]].rename(
             columns={"Date": "merge_Date"}
         )
-
-        left = df.reset_index().rename(columns={"index": "merge_Date"})
+       df.index.name = "merge_Date"
+       left = df.reset_index()
+       
+       df = (
+           left.merge(storage_df, on="merge_Date", how="left")
+           .set_index("merge_Date")
+       )
+               left = df.reset_index().rename(columns={"index": "merge_Date"})
         df = (
             left.merge(storage_df, on="merge_Date", how="left")
             .set_index("merge_Date")
