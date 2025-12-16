@@ -1,6 +1,6 @@
 {
-  "run_time": "2025-12-15 15:21:28 UTC",
-  "data_date": "2025-12-15",
+  "run_time": "2025-12-16 05:45:58 UTC",
+  "data_date": "2025-12-16",
   "sources": {
     "prices_gas": "yahoo:NG=F",
     "prices_oil": "yahoo:CL=F",
@@ -16,36 +16,36 @@
       "storage_loaded",
       "feedgas_loaded"
     ],
-    "rows_after": 2755
+    "rows_after": 2756
   },
-  "prob_up_raw": 0.4813173998045996,
-  "prob_up_adj": 0.4813173998045996,
-  "prob_down_adj": 0.5186826001954004,
+  "prob_up_raw": 0.4927426092987403,
+  "prob_up_adj": 0.4927426092987403,
+  "prob_down_adj": 0.5072573907012596,
   "confidence": 1.0,
-  "model_cv_mean": 0.5089324618736383,
-  "model_cv_std": 0.020325758239112167,
+  "model_cv_mean": 0.5093681917211329,
+  "model_cv_std": 0.015368359118560687,
   "numeric_snapshot": {
-    "Gas_Close": 4.019000053405762,
-    "Oil_Close": 56.84000015258789,
+    "Gas_Close": 3.944999933242798,
+    "Oil_Close": 56.369998931884766,
     "Storage_latest": 3746.0
   },
   "notes": [],
   "signal": "DOWN",
   "perm_importance": {
-    "Gas_Return_lag1": 0.06800000000000006,
-    "Oil_Return_lag1": 0.03200000000000003,
-    "Gas_Return_lag2": 0.06000000000000005,
-    "Oil_Return_lag2": 0.03200000000000003,
+    "Gas_Return_lag1": 0.07600000000000007,
+    "Oil_Return_lag1": 0.04800000000000004,
+    "Gas_Return_lag2": 0.05600000000000005,
+    "Oil_Return_lag2": 0.03600000000000003,
     "Gas_Return_lag3": 0.05600000000000005,
-    "Oil_Return_lag3": 0.04800000000000004,
-    "Gas_Return_lag4": 0.052000000000000046,
-    "Oil_Return_lag4": 0.06800000000000006,
-    "Gas_Return_lag5": 0.04400000000000004,
-    "Oil_Return_lag5": 0.03200000000000003,
+    "Oil_Return_lag3": 0.09200000000000008,
+    "Gas_Return_lag4": 0.07200000000000006,
+    "Oil_Return_lag4": 0.07200000000000006,
+    "Gas_Return_lag5": 0.06800000000000006,
+    "Oil_Return_lag5": 0.06400000000000006,
     "Storage_Surprise_Z": 0.0,
     "LNG_Feedgas_Surprise_Z": 0.0,
-    "Momentum5": 0.04400000000000004,
-    "SMA10": 0.03200000000000003,
-    "Volatility5": 0.06000000000000005
+    "Momentum5": 0.06000000000000005,
+    "SMA10": 0.03600000000000003,
+    "Volatility5": 0.06400000000000006
   }
 }
