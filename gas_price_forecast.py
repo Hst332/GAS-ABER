@@ -382,6 +382,20 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     df["LNG_Effective"] = df["LNG_Feedgas_Surprise_Z"] * df["High_Vol_Regime"]
     
     meta["notes"].append("volatility_regime_gate")
+    # --- Phase 2.5 B: Directional Regime (Backwardation / Contango Proxy) ---
+    
+    # Directional regime via price vs long SMA
+    df["Directional_Regime"] = (
+        (df["Gas_Close"] > df["Gas_Close"].rolling(60).mean())
+        .shift(1)
+        .astype(int)
+    )
+    
+    # Gate storage & LNG by directional regime
+    df["Storage_Directional"] = df["Storage_Effective"] * df["Directional_Regime"]
+    df["LNG_Directional"] = df["LNG_Effective"] * df["Directional_Regime"]
+    
+    meta["notes"].append("directional_regime_gate")
 
     # final cleanup
     df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
