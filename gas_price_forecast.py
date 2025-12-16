@@ -372,6 +372,16 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     # Interaction between Storage and LNG (if Feedgas available)
     if "LNG_Feedgas_Surprise_Z" in df.columns:
         df["Storage_LNG_Interaction"] = df["Storage_Surprise_Z"] * df["LNG_Feedgas_Surprise_Z"]
+    # --- Phase 2.5 A: Volatility Regime Gate ---
+    
+    # Volatility regime (market stress proxy)
+    df["High_Vol_Regime"] = (df["Volatility5"] > df["Volatility5"].rolling(252).median()).astype(int)
+    
+    # Gate storage & LNG impact by volatility
+    df["Storage_Effective"] = df["Storage_Surprise_Z"] * df["High_Vol_Regime"]
+    df["LNG_Effective"] = df["LNG_Feedgas_Surprise_Z"] * df["High_Vol_Regime"]
+    
+    meta["notes"].append("volatility_regime_gate")
 
     # final cleanup
     df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
