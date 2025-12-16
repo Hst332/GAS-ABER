@@ -242,7 +242,7 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
         storage_df = storage_df[["Date", "Storage_Surprise_Z"]].rename(
             columns={"Date": "merge_Date"}
         )
-       df.index.name = "merge_Date"
+     df.index.name = "merge_Date"
        left = df.reset_index()
        
        df = (
