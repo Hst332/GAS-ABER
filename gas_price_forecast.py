@@ -296,30 +296,30 @@ else:
         elif "index" in left.columns:
          left = left.rename(columns={"index": "merge_Date"})
 
-        merged = left.merge(feedgas_df, on="merge_Date", how="left").set_index("merge_Date")
-        df = merged
-        df["LNG_Feedgas_Surprise_Z"] = df["LNG_Feedgas_Surprise_Z"].ffill().fillna(0.0)
-        meta["notes"].append("feedgas_loaded")
-        
-        df["Days_Since_Feedgas"] = (
-            df["LNG_Feedgas_Surprise_Z"]
-                .ne(0)
-                .astype(int)
-                .groupby((df["LNG_Feedgas_Surprise_Z"] != 0).cumsum())
-                .cumcount()
-        )
-        
-        df["Days_Since_Feedgas"] = df["Days_Since_Feedgas"].clip(0, 7)
-
-        # final cleanup: ensure datetime index and drop rows with NA in core features
+         merged = left.merge(feedgas_df, on="merge_Date", how="left").set_index("merge_Date")
+         df = merged
+         df["LNG_Feedgas_Surprise_Z"] = df["LNG_Feedgas_Surprise_Z"].ffill().fillna(0.0)
+         meta["notes"].append("feedgas_loaded")
+         
+         df["Days_Since_Feedgas"] = (
+             df["LNG_Feedgas_Surprise_Z"]
+                 .ne(0)
+                 .astype(int)
+                 .groupby((df["LNG_Feedgas_Surprise_Z"] != 0).cumsum())
+                 .cumcount()
+         )
+         
+         df["Days_Since_Feedgas"] = df["Days_Since_Feedgas"].clip(0, 7)
+ 
+         # final cleanup: ensure datetime index and drop rows with NA in core features
         if not isinstance(df.index, pd.DatetimeIndex):
-        # attempt to set index back to original dates if present
+         # attempt to set index back to original dates if present
         if "merge_Date" in df.columns:
-            df.index = pd.to_datetime(df.index)
-            # drop rows where target is NA or core cols missing
-            df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
-            meta["rows_after"] = len(df)
-            return df, meta
+         df.index = pd.to_datetime(df.index)
+         # drop rows where target is NA or core cols missing
+         df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
+         meta["rows_after"] = len(df)
+         return df, meta
 
 # -----------------------
 # Model training + CV
