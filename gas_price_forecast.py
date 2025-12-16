@@ -256,16 +256,16 @@ else:
     elif "index" in left.columns:
          left = left.rename(columns={"index": "merge_Date"})
 
-        merged = left.merge(right, on="merge_Date", how="left")
-        merged = merged.set_index("merge_Date")
-        df["Days_Since_Storage"] = (
-        df["Storage_Surprise_Z"]
-        .ne(0)
-        .astype(int)
-        .groupby((df["Storage_Surprise_Z"] != 0).cumsum())
-        .cumcount()
-         )
-        df["Days_Since_Storage"] = df["Days_Since_Storage"].clip(0, 7)
+         merged = left.merge(right, on="merge_Date", how="left")
+         merged = merged.set_index("merge_Date")
+         df["Days_Since_Storage"] = (
+         df["Storage_Surprise_Z"]
+         .ne(0)
+         .astype(int)
+         .groupby((df["Storage_Surprise_Z"] != 0).cumsum())
+         .cumcount()
+          )
+         df["Days_Since_Storage"] = df["Days_Since_Storage"].clip(0, 7)
 
 
         # reindex name to original (DatetimeIndex may have tz); ensure names consistent
