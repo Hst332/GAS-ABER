@@ -252,7 +252,7 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
         # reindex name to original (DatetimeIndex may have tz); ensure names consistent
         merged.index.name = df.index.name or None
         df = merged
-        df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].fillna(0.0)
+        df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].ffill().fillna(0.0)
         meta["notes"].append("storage_loaded")
 
     # Optional: feedgas surprise
@@ -277,7 +277,7 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
 
         merged = left.merge(feedgas_df, on="merge_Date", how="left").set_index("merge_Date")
         df = merged
-        df["LNG_Feedgas_Surprise_Z"] = df["LNG_Feedgas_Surprise_Z"].fillna(0.0)
+        df["LNG_Feedgas_Surprise_Z"] = df["LNG_Feedgas_Surprise_Z"].ffill().fillna(0.0)
         meta["notes"].append("feedgas_loaded")
 
     # final cleanup: ensure datetime index and drop rows with NA in core features
