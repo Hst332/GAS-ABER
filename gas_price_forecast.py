@@ -253,7 +253,7 @@ else:
 
     if "Date" in left.columns:
          left = left.rename(columns={"Date": "merge_Date"})
-        elif "index" in left.columns:
+    elif "index" in left.columns:
          left = left.rename(columns={"index": "merge_Date"})
 
         merged = left.merge(right, on="merge_Date", how="left")
