@@ -312,7 +312,7 @@ else:
         df["Days_Since_Feedgas"] = df["Days_Since_Feedgas"].clip(0, 7)
 
         # final cleanup: ensure datetime index and drop rows with NA in core features
-     if not isinstance(df.index, pd.DatetimeIndex):
+        if not isinstance(df.index, pd.DatetimeIndex):
         # attempt to set index back to original dates if present
         if "merge_Date" in df.columns:
             df.index = pd.to_datetime(df.index)
