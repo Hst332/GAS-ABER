@@ -510,6 +510,9 @@ def main():
     # 4) feature list
     feature_cols = [c for c in df.columns if isinstance(c, str) and (c.startswith("Gas_Return_lag") or c.startswith("Oil_Return_lag"))]
     # include optional surprises
+     for extra in ("Days_Since_Storage", "Days_Since_Feedgas"):
+        if extra in df.columns:
+            feature_cols.append(extra)
     if "Storage_Surprise_Z" in df.columns:
         feature_cols.append("Storage_Surprise_Z")
     if "LNG_Feedgas_Surprise_Z" in df.columns:
