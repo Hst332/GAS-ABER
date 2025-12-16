@@ -251,7 +251,7 @@ else:
     df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"].fillna(0.0)
     meta["notes"].append("storage_loaded")
 
-        if "Date" in left.columns:
+    if "Date" in left.columns:
          left = left.rename(columns={"Date": "merge_Date"})
         elif "index" in left.columns:
          left = left.rename(columns={"index": "merge_Date"})
