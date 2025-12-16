@@ -335,6 +335,14 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
         .cumcount()
         .clip(0, 7)
     )
+    # --- Phase 2.2: seasonal regime weighting ---
+
+    # Winter sensitivity: Nov–Mar
+    winter_months = df.index.month.isin([11, 12, 1, 2, 3]).astype(int)
+    df["Winter_Factor"] = 1.0 + 0.6 * winter_months
+
+    # Apply winter weighting to storage
+    df["Storage_Surprise_Z"] = df["Storage_Surprise_Z"] * df["Winter_Factor"]
 
     # final cleanup
     df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
