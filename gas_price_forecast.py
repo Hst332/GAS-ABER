@@ -400,20 +400,22 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     df = df.dropna(subset=["Gas_Close", "Oil_Close", "Target"])
     meta["rows_after"] = len(df)
    # -----------------------
-   # Phase 2.6: Feature Pruning (low-variance filter)
-   # -----------------------
-   feature_cols = [
-       c for c in df.columns
-       if c not in ("Target", "Gas_Close", "Oil_Close")
-   ]
-   low_var_features = [
-       c for c in feature_cols
-       if df[c].std() < 1e-6
-   ]
-   
-   if low_var_features:
-       df = df.drop(columns=low_var_features)
-       meta["notes"].append(f"pruned:{len(low_var_features)}")
+    # Phase 2.6: Feature Pruning (low-variance filter)
+    # -----------------------
+    feature_cols = [
+        c for c in df.columns
+        if c not in ("Target", "Gas_Close", "Oil_Close")
+    ]
+
+    low_var_features = [
+        c for c in feature_cols
+        if df[c].std() < 1e-6
+    ]
+
+    if low_var_features:
+        df = df.drop(columns=low_var_features)
+        meta["notes"].append(f"pruned:{len(low_var_features)}")
+
 
     return df, meta
 
