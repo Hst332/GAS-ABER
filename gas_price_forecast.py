@@ -406,7 +406,6 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
        c for c in df.columns
        if c not in ("Target", "Gas_Close", "Oil_Close")
    ]
-   
    low_var_features = [
        c for c in feature_cols
        if df[c].std() < 1e-6
