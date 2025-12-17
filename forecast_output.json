@@ -1,5 +1,5 @@
 {
-  "run_time": "2025-12-17 12:03:40 UTC",
+  "run_time": "2025-12-17 14:24:01 UTC",
   "data_date": "2025-12-17",
   "sources": {
     "prices_gas": "yahoo:NG=F",
@@ -28,12 +28,13 @@
   "model_cv_mean": 0.5063180827886711,
   "model_cv_std": 0.014686099822529596,
   "numeric_snapshot": {
-    "Gas_Close": 3.9700000286102295,
-    "Oil_Close": 56.290000915527344,
+    "Gas_Close": 4.0,
+    "Oil_Close": 55.880001068115234,
     "Storage_latest": null
   },
   "notes": [],
   "signal": "UP",
+  "signal_strength": "WEAK_UP",
   "perm_importance": {
     "Gas_Return_lag1": 0.06000000000000005,
     "Oil_Return_lag1": 0.01200000000000001,
