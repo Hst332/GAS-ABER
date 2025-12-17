@@ -695,6 +695,7 @@ elif signal == "DOWN":
         "numeric_snapshot": numeric_snapshot,
         "notes": notes,
         "signal": signal,
+        "signal_strength": signal_strength,
     }
 
     # 8) permutation importance (final diagnostic)
