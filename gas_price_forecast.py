@@ -389,7 +389,7 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     .shift(1)
     .fillna(0)
     .astype(int)
-)
+    )
 
     
     # Gate storage & LNG by directional regime
