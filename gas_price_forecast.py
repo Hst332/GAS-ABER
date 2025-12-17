@@ -383,15 +383,13 @@ def build_features(df_prices: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     
     meta["notes"].append("volatility_regime_gate")
     # --- Phase 2.5 B: Directional Regime (Backwardation / Contango Proxy) ---
-    
-   df["Directional_Regime"] = (
+    df["Directional_Regime"] = (
     (df["Gas_Close"] > df["Gas_Close"].rolling(60).mean())
     .shift(1)
     .fillna(0)
     .astype(int)
-    )
-
-    
+)
+      
     # Gate storage & LNG by directional regime
     df["Storage_Directional"] = df["Storage_Effective"] * df["Directional_Regime"]
     df["LNG_Directional"] = df["LNG_Effective"] * df["Directional_Regime"]
