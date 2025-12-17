@@ -635,6 +635,18 @@ def main():
     # clip
     prob_up_adj = float(max(0.0, min(1.0, prob_up_adj)))
     prob_down_adj = 1.0 - prob_up_adj
+    # Phase 3A: Trade / No-Trade filter
+    trade_allowed = True
+    if 0.48 <= prob_up_adj <= 0.52:
+        trade_allowed = False
+        notes.append("no_trade_neutral_prob")
+    
+    if confidence < 0.85:
+        trade_allowed = False
+        notes.append("no_trade_low_conf")
+    
+    if not trade_allowed:
+        signal = "NO_TRADE"
 
     # determine signal
     signal = "UP" if prob_up_adj > PROB_THRESHOLD else "DOWN"
