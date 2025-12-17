@@ -705,6 +705,21 @@ def main():
     except Exception as e:
         result["perm_importance"] = {}
         result["notes"].append(f"perm_error:{e}")
+     # Phase 3C: historical hit rate by signal strength
+     try:
+         hist = df.copy()
+         hist["Pred"] = (model.predict_proba(hist[feature_cols])[:, 1] > PROB_THRESHOLD).astype(int)
+         hist["Correct"] = (hist["Pred"] == hist["Target"]).astype(int)
+     
+         hit_rates = (
+             hist.groupby(hist["signal_strength"])["Correct"]
+             .mean()
+             .round(3)
+             .to_dict()
+         )
+         result["signal_strength_hit_rate"] = hit_rates
+     except Exception:
+         result["signal_strength_hit_rate"] = {}
 
     # 9) write outputs
     write_outputs(result)
