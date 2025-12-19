@@ -705,6 +705,18 @@ def main():
     except Exception as e:
         result["perm_importance"] = {}
         result["notes"].append(f"perm_error:{e}")
+    # Phase 3D: confidence-weighted position size
+    position_size = 0.0
+    if signal_strength == "STRONG_UP":
+        position_size = +1.0
+    elif signal_strength == "WEAK_UP":
+        position_size = +0.5
+    elif signal_strength == "WEAK_DOWN":
+        position_size = -0.5
+    elif signal_strength == "STRONG_DOWN":
+        position_size = -1.0
+
+    result["position_size"] = position_size
      # Phase 3C: historical hit rate by signal strength
     try:
          hist = df.copy()
