@@ -718,7 +718,7 @@ def main():
              .to_dict()
          )
          result["signal_strength_hit_rate"] = hit_rates
-     except Exception:
+    except Exception:
          result["signal_strength_hit_rate"] = {}
 
     # 9) write outputs
