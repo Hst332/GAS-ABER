@@ -650,17 +650,7 @@ def main():
      
     # determine signal
     signal = "UP" if prob_up_adj > PROB_THRESHOLD else "DOWN"
-    # -----------------------
-    # Phase 4B: Position Sizing
-    # -----------------------
-    if signal_strength.startswith("STRONG") and model_confidence >= 0.8:
-        position_size = 1.0
-    elif signal_strength.startswith("WEAK") and model_confidence >= 0.65:
-        position_size = 0.5
-    elif model_confidence < 0.55 or "no_trade" in confidence_notes:
-        position_size = 0.0
-    else:
-     position_size = 0.25
+ 
     # Phase 3B: Signal strength classification
     signal_strength = "NEUTRAL"
     
@@ -716,6 +706,17 @@ def main():
     except Exception as e:
         result["perm_importance"] = {}
         result["notes"].append(f"perm_error:{e}")
+    # -----------------------
+    # Phase 4B: Position Sizing
+    # -----------------------
+    if signal_strength.startswith("STRONG") and model_confidence >= 0.8:
+        position_size = 1.0
+    elif signal_strength.startswith("WEAK") and model_confidence >= 0.65:
+        position_size = 0.5
+    elif model_confidence < 0.55 or "no_trade" in confidence_notes:
+        position_size = 0.0
+    else:
+     position_size = 0.25
     # Phase 3D: confidence-weighted position size
     position_size = 0.0
     if signal_strength == "STRONG_UP":
@@ -751,7 +752,7 @@ def main():
          hit_rates = (
              hist.groupby(hist["signal_strength"])["Correct"]
              .mean()
-             .round(3)
+             .round(3) 
              .to_dict()
          )
          result["signal_strength_hit_rate"] = hit_rates
