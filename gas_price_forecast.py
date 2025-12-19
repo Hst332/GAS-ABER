@@ -712,7 +712,7 @@ elif signal == "DOWN":
     # -----------------------
     if signal_strength.startswith("STRONG") and model_confidence >= 0.8:
         position_size = 1.0
-    elif signal_strength.startswith("WEAK") and model_confidence >= 0.65:
+    elif signal_strength.startswith("WEAK") and confidence >= 0.65:
         position_size = 0.5
     elif model_confidence < 0.55 or "no_trade" in confidence_notes:
         position_size = 0.0
