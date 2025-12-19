@@ -537,6 +537,9 @@ def write_outputs(result: Dict, txt_path: str = FORECAST_FILE_TXT, json_path: st
         lines.append(f"  Position size   : {result['position_size']:.2f}")
     if "risk_cap" in result:
         lines.append(f"  Risk cap        : {result['risk_cap']:.2f}")
+    lines.append(f"  Trade bias      : {result.get('trade_bias')}")
+    lines.append(f"  Final position  : {result.get('final_position')}")
+    lines.append(f"  Execution OK    : {result.get('execution_ok')}")
     lines.append("===================================")
 
     # write txt
@@ -838,10 +841,22 @@ def main():
         }
     except Exception:
         result["backtest"] = {}
-
-
-
-
+     # -----------------------
+     # Phase 6B: Execution-Ready Signal
+     # -----------------------
+     final_position = position_size
+     
+     execution_ok = abs(final_position) >= 0.1 and trade_allowed
+     
+     trade_bias = (
+         "LONG" if final_position > 0 else
+         "SHORT" if final_position < 0 else
+         "FLAT"
+     )
+     
+     result["final_position"] = round(final_position, 2)
+     result["trade_bias"] = trade_bias
+     result["execution_ok"] = execution_ok
 
     # 9) write outputs
     write_outputs(result)
