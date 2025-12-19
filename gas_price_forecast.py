@@ -706,7 +706,7 @@ def main():
         result["perm_importance"] = {}
         result["notes"].append(f"perm_error:{e}")
      # Phase 3C: historical hit rate by signal strength
-     try:
+    try:
          hist = df.copy()
          hist["Pred"] = (model.predict_proba(hist[feature_cols])[:, 1] > PROB_THRESHOLD).astype(int)
          hist["Correct"] = (hist["Pred"] == hist["Target"]).astype(int)
