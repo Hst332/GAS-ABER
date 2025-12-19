@@ -651,20 +651,20 @@ def main():
     # determine signal
     signal = "UP" if prob_up_adj > PROB_THRESHOLD else "DOWN"
  
-  # Phase 3B: Signal strength classification
-signal_strength = "NEUTRAL"
-
-if signal == "UP":
-    if prob_up_adj >= 0.58 and confidence >= 0.90:
-        signal_strength = "STRONG_UP"
-    else:
-        signal_strength = "WEAK_UP"
-
-elif signal == "DOWN":
-    if prob_up_adj <= 0.42 and confidence >= 0.90:
-        signal_strength = "STRONG_DOWN"
-    else:
-        signal_strength = "WEAK_DOWN"
+      # Phase 3B: Signal strength classification
+    signal_strength = "NEUTRAL"
+    
+    if signal == "UP":
+        if prob_up_adj >= 0.58 and confidence >= 0.90:
+            signal_strength = "STRONG_UP"
+        else:
+            signal_strength = "WEAK_UP"
+    
+    elif signal == "DOWN":
+        if prob_up_adj <= 0.42 and confidence >= 0.90:
+            signal_strength = "STRONG_DOWN"
+        else:
+            signal_strength = "WEAK_DOWN"
 
 
     # numeric snapshot
