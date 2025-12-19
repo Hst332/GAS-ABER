@@ -816,28 +816,30 @@ def main():
     print(f"  Position size   : {result.get('position_size'):.2f}")
     if "risk_cap" in result:
         print(f"  Risk cap        : {result.get('risk_cap'):.2f}")
-      # -----------------------
-      # Phase 5C: Lightweight Backtest / PnL
-      # -----------------------
-      try:
-          bt = df.copy()
-      
-          bt["Pred_Signal"] = 0.0
-          bt.loc[bt["signal_strength"] == "STRONG_UP", "Pred_Signal"] = 1.0
-          bt.loc[bt["signal_strength"] == "WEAK_UP", "Pred_Signal"] = 0.5
-          bt.loc[bt["signal_strength"] == "WEAK_DOWN", "Pred_Signal"] = -0.5
-          bt.loc[bt["signal_strength"] == "STRONG_DOWN", "Pred_Signal"] = -1.0
-      
-          bt["Strategy_Return"] = bt["Pred_Signal"] * bt["Gas_Return"].shift(-1)
-          cum_pnl = float(bt["Strategy_Return"].cumsum().iloc[-2])
-      
-          result["backtest"] = {
-              "cum_pnl": round(cum_pnl, 3),
-              "avg_daily_return": round(bt["Strategy_Return"].mean(), 5),
-              "hit_rate": round(bt["Strategy_Return"].gt(0).mean(), 3),
-          }
-      except Exception:
-          result["backtest"] = {}
+     # -----------------------
+    # Phase 5C: Lightweight Backtest / PnL
+    # -----------------------
+    try:
+        bt = df.copy()
+    
+        bt["Pred_Signal"] = 0.0
+        bt.loc[bt["signal_strength"] == "STRONG_UP", "Pred_Signal"] = 1.0
+        bt.loc[bt["signal_strength"] == "WEAK_UP", "Pred_Signal"] = 0.5
+        bt.loc[bt["signal_strength"] == "WEAK_DOWN", "Pred_Signal"] = -0.5
+        bt.loc[bt["signal_strength"] == "STRONG_DOWN", "Pred_Signal"] = -1.0
+    
+        bt["Strategy_Return"] = bt["Pred_Signal"] * bt["Gas_Return"].shift(-1)
+        cum_pnl = float(bt["Strategy_Return"].cumsum().iloc[-2])
+    
+        result["backtest"] = {
+            "cum_pnl": round(cum_pnl, 3),
+            "avg_daily_return": round(bt["Strategy_Return"].mean(), 5),
+            "hit_rate": round(bt["Strategy_Return"].gt(0).mean(), 3),
+        }
+    except Exception:
+        result["backtest"] = {}
+
+
 
 
 
