@@ -844,19 +844,19 @@ def main():
      # -----------------------
      # Phase 6B: Execution-Ready Signal
      # -----------------------
-     final_position = position_size
-     
-     execution_ok = abs(final_position) >= 0.1 and trade_allowed
-     
-     trade_bias = (
-         "LONG" if final_position > 0 else
-         "SHORT" if final_position < 0 else
-         "FLAT"
-     )
-     
-     result["final_position"] = round(final_position, 2)
-     result["trade_bias"] = trade_bias
-     result["execution_ok"] = execution_ok
+      final_position = position_size
+      
+      execution_ok = abs(final_position) >= 0.1 and trade_allowed
+      
+      trade_bias = (
+          "LONG" if final_position > 0 else
+          "SHORT" if final_position < 0 else
+          "FLAT"
+      )
+      
+      result["final_position"] = round(final_position, 2)
+      result["trade_bias"] = trade_bias
+      result["execution_ok"] = execution_ok
 
     # 9) write outputs
     write_outputs(result)
