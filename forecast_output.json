@@ -1,6 +1,6 @@
 {
-  "run_time": "2025-12-17 14:24:01 UTC",
-  "data_date": "2025-12-17",
+  "run_time": "2025-12-19 09:16:21 UTC",
+  "data_date": "2025-12-19",
   "sources": {
     "prices_gas": "yahoo:NG=F",
     "prices_oil": "yahoo:CL=F",
@@ -19,37 +19,40 @@
       "directional_regime_gate",
       "pruned:9"
     ],
-    "rows_after": 2757
+    "rows_after": 2759
   },
-  "prob_up_raw": 0.55548560364911,
-  "prob_up_adj": 0.55548560364911,
-  "prob_down_adj": 0.44451439635088996,
+  "prob_up_raw": 0.5142190679330573,
+  "prob_up_adj": 0.5142190679330573,
+  "prob_down_adj": 0.48578093206694273,
   "confidence": 1.0,
   "model_cv_mean": 0.5063180827886711,
-  "model_cv_std": 0.014686099822529596,
+  "model_cv_std": 0.02308134664601138,
   "numeric_snapshot": {
-    "Gas_Close": 4.0,
-    "Oil_Close": 55.880001068115234,
+    "Gas_Close": 3.9170000553131104,
+    "Oil_Close": 55.849998474121094,
     "Storage_latest": null
   },
-  "notes": [],
+  "notes": [
+    "no_trade_neutral_prob"
+  ],
   "signal": "UP",
   "signal_strength": "WEAK_UP",
   "perm_importance": {
-    "Gas_Return_lag1": 0.06000000000000005,
-    "Oil_Return_lag1": 0.01200000000000001,
-    "Gas_Return_lag2": 0.028000000000000025,
-    "Oil_Return_lag2": 0.040000000000000036,
-    "Gas_Return_lag3": 0.01200000000000001,
-    "Oil_Return_lag3": 0.040000000000000036,
-    "Gas_Return_lag4": 0.05600000000000005,
-    "Oil_Return_lag4": 0.06400000000000006,
-    "Gas_Return_lag5": 0.04800000000000004,
-    "Oil_Return_lag5": 0.02400000000000002,
+    "Gas_Return_lag1": 0.04800000000000004,
+    "Oil_Return_lag1": 0.04400000000000004,
+    "Gas_Return_lag2": 0.08000000000000007,
+    "Oil_Return_lag2": 0.06400000000000006,
+    "Gas_Return_lag3": 0.06000000000000005,
+    "Oil_Return_lag3": 0.07200000000000006,
+    "Gas_Return_lag4": 0.06400000000000006,
+    "Oil_Return_lag4": 0.04800000000000004,
+    "Gas_Return_lag5": 0.07600000000000007,
+    "Oil_Return_lag5": 0.040000000000000036,
     "Days_Since_Storage": 0.0,
     "Days_Since_Feedgas": 0.0,
-    "Momentum5": 0.02400000000000002,
+    "Momentum5": 0.03600000000000003,
     "SMA10": 0.028000000000000025,
-    "Volatility5": 0.03600000000000003
-  }
+    "Volatility5": 0.06000000000000005
+  },
+  "signal_strength_hit_rate": {}
 }
