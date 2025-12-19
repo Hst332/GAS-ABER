@@ -769,6 +769,21 @@ def main():
     result["position_size"] = position_size
     result["trend_regime"] = "UPTREND" if trend_up else "DOWNTREND"
     # -----------------------
+    # Phase 5B: Lightweight Backtest / PnL
+    # -----------------------
+    try:
+        bt = df.copy()
+        bt["Model_Pos"] = bt["position_size"].shift(1)
+        bt["Market_Return"] = bt["Gas_Return"]
+        bt["Strategy_Return"] = bt["Model_Pos"] * bt["Market_Return"]
+    
+        result["bt_hit_rate"] = float((bt["Strategy_Return"] > 0).mean())
+        result["bt_avg_return"] = float(bt["Strategy_Return"].mean())
+    except Exception:
+        result["bt_hit_rate"] = None
+        result["bt_avg_return"] = None
+
+    # -----------------------
     # Phase 5B: Volatility-based scaling
     # -----------------------
     vol = df["Gas_Return"].rolling(20).std().iloc[-1]
