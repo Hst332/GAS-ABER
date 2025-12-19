@@ -1,5 +1,5 @@
 {
-  "run_time": "2025-12-19 09:53:50 UTC",
+  "run_time": "2025-12-19 10:26:50 UTC",
   "data_date": "2025-12-19",
   "sources": {
     "prices_gas": "yahoo:NG=F",
@@ -21,15 +21,15 @@
     ],
     "rows_after": 2759
   },
-  "prob_up_raw": 0.5071975850133316,
-  "prob_up_adj": 0.5071975850133316,
-  "prob_down_adj": 0.49280241498666844,
+  "prob_up_raw": 0.5142190679330573,
+  "prob_up_adj": 0.5142190679330573,
+  "prob_down_adj": 0.48578093206694273,
   "confidence": 1.0,
-  "model_cv_mean": 0.5067538126361656,
-  "model_cv_std": 0.02241363163331012,
+  "model_cv_mean": 0.5063180827886711,
+  "model_cv_std": 0.02308134664601138,
   "numeric_snapshot": {
-    "Gas_Close": 3.9070000648498535,
-    "Oil_Close": 55.66999816894531,
+    "Gas_Close": 3.934999942779541,
+    "Oil_Close": 55.790000915527344,
     "Storage_latest": null
   },
   "notes": [
@@ -39,20 +39,20 @@
   "signal_strength": "WEAK_UP",
   "perm_importance": {
     "Gas_Return_lag1": 0.04800000000000004,
-    "Oil_Return_lag1": 0.028000000000000025,
-    "Gas_Return_lag2": 0.07600000000000007,
+    "Oil_Return_lag1": 0.04400000000000004,
+    "Gas_Return_lag2": 0.08000000000000007,
     "Oil_Return_lag2": 0.06400000000000006,
-    "Gas_Return_lag3": 0.04400000000000004,
-    "Oil_Return_lag3": 0.06800000000000006,
-    "Gas_Return_lag4": 0.04800000000000004,
-    "Oil_Return_lag4": 0.052000000000000046,
-    "Gas_Return_lag5": 0.07200000000000006,
-    "Oil_Return_lag5": 0.052000000000000046,
+    "Gas_Return_lag3": 0.06000000000000005,
+    "Oil_Return_lag3": 0.07200000000000006,
+    "Gas_Return_lag4": 0.06400000000000006,
+    "Oil_Return_lag4": 0.04800000000000004,
+    "Gas_Return_lag5": 0.07600000000000007,
+    "Oil_Return_lag5": 0.040000000000000036,
     "Days_Since_Storage": 0.0,
     "Days_Since_Feedgas": 0.0,
-    "Momentum5": 0.04400000000000004,
-    "SMA10": 0.03600000000000003,
-    "Volatility5": 0.05600000000000005
+    "Momentum5": 0.03600000000000003,
+    "SMA10": 0.028000000000000025,
+    "Volatility5": 0.06000000000000005
   },
   "position_size": 0.25,
   "risk_cap": 0.5,
