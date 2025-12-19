@@ -768,7 +768,19 @@ def main():
     
     result["position_size"] = position_size
     result["trend_regime"] = "UPTREND" if trend_up else "DOWNTREND"
+    # -----------------------
+    # Phase 5B: Volatility-based scaling
+    # -----------------------
+    vol = df["Gas_Return"].rolling(20).std().iloc[-1]
     
+    if vol > 0.08:
+        position_size *= 0.5
+        notes.append("high_volatility")
+    elif vol < 0.03:
+        position_size *= 1.1
+    
+    position_size = max(-1.0, min(1.0, position_size))
+    result["position_size"] = position_size
 
      # Phase 3C: historical hit rate by signal strength
     try:
