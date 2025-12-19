@@ -746,6 +746,10 @@ def main():
          result["signal_strength_hit_rate"] = hit_rates
     except Exception:
          result["signal_strength_hit_rate"] = {}
+    print(f"  Signal strength : {result.get('signal_strength')}")
+    print(f"  Position size   : {result.get('position_size'):.2f}")
+    if "risk_cap" in result:
+        print(f"  Risk cap        : {result.get('risk_cap'):.2f}")
 
     # 9) write outputs
     write_outputs(result)
