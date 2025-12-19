@@ -530,6 +530,12 @@ def write_outputs(result: Dict, txt_path: str = FORECAST_FILE_TXT, json_path: st
     lines.append("Assessment:")
     lines.append(f"  Probability UP: {result.get('prob_up_adj',0.0):.2%}, DOWN: {result.get('prob_down_adj',0.0):.2%}")
     lines.append(f"  Signal: {result.get('signal','-')}")
+    if "signal_strength" in result:
+    lines.append(f"  Signal strength : {result['signal_strength']}")
+    if "position_size" in result:
+    lines.append(f"  Position size   : {result['position_size']:.2f}")
+    if "risk_cap" in result:
+    lines.append(f"  Risk cap        : {result['risk_cap']:.2f}")
     lines.append("===================================")
 
     # write txt
