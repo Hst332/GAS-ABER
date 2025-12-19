@@ -1,7 +1,7 @@
 ===================================
       NATURAL GAS PRICE FORECAST
 ===================================
-Run time (UTC): 2025-12-19 10:26:50 UTC
+Run time (UTC): 2025-12-19 10:56:31 UTC
 Data date     : 2025-12-19
 
 Sources fetched:
@@ -18,8 +18,8 @@ Model confidence  : 100.00%
 Confidence notes  : no_trade_neutral_prob
 
 Latest numeric snapshot:
-  Gas_Close : 3.934999942779541
-  Oil_Close : 55.790000915527344
+  Gas_Close : 3.934000015258789
+  Oil_Close : 55.9900016784668
   Storage(latest): None
 
 Assessment:
