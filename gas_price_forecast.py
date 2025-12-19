@@ -717,6 +717,20 @@ def main():
         position_size = -1.0
 
     result["position_size"] = position_size
+     # Phase 3E: risk cap based on model quality
+    risk_cap = 1.0
+
+    if cv_mean < 0.52:
+        risk_cap *= 0.5
+    if confidence < 0.7:
+        risk_cap *= 0.5
+
+    position_size = position_size * risk_cap
+    position_size = max(-1.0, min(1.0, position_size))
+
+    result["position_size"] = position_size
+    result["risk_cap"] = risk_cap
+
      # Phase 3C: historical hit rate by signal strength
     try:
          hist = df.copy()
