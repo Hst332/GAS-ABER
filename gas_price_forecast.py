@@ -753,18 +753,18 @@ def main():
       # -----------------------
       # Phase 5A: Trend Regime Filter
       # -----------------------
-      trend_up = df["Gas_Close"].iloc[-1] > df["Gas_Close"].rolling(50).mean().iloc[-1]
+     trend_up = df["Gas_Close"].iloc[-1] > df["Gas_Close"].rolling(50).mean().iloc[-1]
       
-      if signal == "UP" and not trend_up:
-          position_size *= 0.5
-          notes.append("counter_trend_up")
+     if signal == "UP" and not trend_up:
+         position_size *= 0.5
+         notes.append("counter_trend_up")
       
-      elif signal == "DOWN" and trend_up:
-          position_size *= 0.5
-          notes.append("counter_trend_down")
+     elif signal == "DOWN" and trend_up:
+         position_size *= 0.5
+         notes.append("counter_trend_down")
       
-      result["position_size"] = position_size
-      result["trend_regime"] = "UPTREND" if trend_up else "DOWNTREND"
+     result["position_size"] = position_size
+     result["trend_regime"] = "UPTREND" if trend_up else "DOWNTREND"
 
      # Phase 3C: historical hit rate by signal strength
     try:
