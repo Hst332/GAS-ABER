@@ -1,5 +1,5 @@
 {
-  "run_time": "2025-12-20 21:05:32 UTC",
+  "run_time": "2025-12-20 21:07:58 UTC",
   "data_date": "2025-12-19",
   "sources": {
     "prices_gas": "yahoo:NG=F",
@@ -65,5 +65,6 @@
   },
   "final_position": 0.12,
   "trade_bias": "LONG",
-  "execution_ok": false
+  "execution_ok": false,
+  "backtest_note": "Backtest is diagnostic only. No feedback into model."
 }
