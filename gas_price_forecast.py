@@ -809,7 +809,12 @@ def main():
     final_position = position_size
       
     execution_ok = abs(final_position) >= 0.1 and trade_allowed
-      
+    # ===== A6: Go-Live Safety Brake =====
+    if result.get("backtest", {}).get("hit_rate", 1.0) < 0.48:
+        execution_ok = False
+        result["notes"].append("execution_blocked_low_hit_rate")
+    
+          
     trade_bias = (
         "LONG" if final_position > 0 else
         "SHORT" if final_position < 0 else
