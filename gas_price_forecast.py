@@ -819,12 +819,11 @@ def main():
     result["final_position"] = round(final_position, 2)
     result["trade_bias"] = trade_bias
     result["execution_ok"] = execution_ok
+    result["final_position"] = round(position_size, 2)
+    result["backtest_note"] = "Backtest is diagnostic only. No feedback into model."
 
     # 9) write outputs
     write_outputs(result)
-    # EINMAL ganz am Ende
-    result["final_position"] = round(position_size, 2)
-
 # -----------------------
 # Entrypoint
 # -----------------------
