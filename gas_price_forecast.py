@@ -771,20 +771,63 @@ def main():
     
     result["position_size"] = position_size
     result["trend_regime"] = "UPTREND" if trend_up else "DOWNTREND"
-    # -----------------------
-    # Phase 5B: Lightweight Backtest / PnL
+   # -----------------------
+    # Phase 5B (PATCH A): Clean Historical Backtest (NO PLACEBO)
     # -----------------------
     try:
         bt = df.copy()
-        bt["Model_Pos"] = bt["position_size"].shift(1)
-        bt["Market_Return"] = bt["Gas_Return"]
-        bt["Strategy_Return"] = bt["Model_Pos"] * bt["Market_Return"]
     
-        result["bt_hit_rate"] = float((bt["Strategy_Return"] > 0).mean())
-        result["bt_avg_return"] = float(bt["Strategy_Return"].mean())
-    except Exception:
-        result["bt_hit_rate"] = None
-        result["bt_avg_return"] = None
+        # 1) Historical probabilities
+        probs = model.predict_proba(bt[feature_cols].fillna(0.0))[:, 1]
+        bt["Prob_UP"] = probs
+    
+        # 2) Historical signal
+        bt["Hist_Signal"] = np.where(bt["Prob_UP"] > 0.5, "UP", "DOWN")
+    
+        # 3) Historical signal strength (same rules as live)
+        bt["Hist_Strength"] = "NEUTRAL"
+    
+        bt.loc[
+            (bt["Hist_Signal"] == "UP") & (bt["Prob_UP"] >= 0.58),
+            "Hist_Strength"
+        ] = "STRONG_UP"
+    
+        bt.loc[
+            (bt["Hist_Signal"] == "UP") & (bt["Prob_UP"] < 0.58),
+            "Hist_Strength"
+        ] = "WEAK_UP"
+    
+        bt.loc[
+            (bt["Hist_Signal"] == "DOWN") & (bt["Prob_UP"] <= 0.42),
+            "Hist_Strength"
+        ] = "STRONG_DOWN"
+    
+        bt.loc[
+            (bt["Hist_Signal"] == "DOWN") & (bt["Prob_UP"] > 0.42),
+            "Hist_Strength"
+        ] = "WEAK_DOWN"
+    
+        # 4) Historical position sizing (NO confidence / NO trend filter!)
+        bt["Hist_Position"] = 0.0
+        bt.loc[bt["Hist_Strength"] == "STRONG_UP", "Hist_Position"] = 1.0
+        bt.loc[bt["Hist_Strength"] == "WEAK_UP", "Hist_Position"] = 0.5
+        bt.loc[bt["Hist_Strength"] == "WEAK_DOWN", "Hist_Position"] = -0.5
+        bt.loc[bt["Hist_Strength"] == "STRONG_DOWN", "Hist_Position"] = -1.0
+    
+        # 5) Strategy return (next-day execution)
+        bt["Strategy_Return"] = bt["Hist_Position"].shift(1) * bt["Gas_Return"]
+    
+        # 6) Metrics
+        result["backtest"] = {
+            "hit_rate": round(bt["Strategy_Return"].gt(0).mean(), 3),
+            "avg_daily_return": round(bt["Strategy_Return"].mean(), 5),
+            "cum_pnl": round(bt["Strategy_Return"].cumsum().iloc[-1], 3),
+            "num_trades": int((bt["Hist_Position"] != 0).sum())
+        }
+    
+    except Exception as e:
+        result["backtest"] = {}
+        result["notes"].append(f"backtest_error:{e}")
 
     # -----------------------
     # Phase 5B: Volatility-based scaling
