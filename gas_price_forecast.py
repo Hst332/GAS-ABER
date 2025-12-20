@@ -903,6 +903,8 @@ def main():
 
     # 9) write outputs
     write_outputs(result)
+    # EINMAL ganz am Ende
+    result["final_position"] = round(position_size, 2)
 
 # -----------------------
 # Entrypoint
