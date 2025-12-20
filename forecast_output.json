@@ -1,5 +1,5 @@
 {
-  "run_time": "2025-12-19 21:27:34 UTC",
+  "run_time": "2025-12-20 06:51:10 UTC",
   "data_date": "2025-12-19",
   "sources": {
     "prices_gas": "yahoo:NG=F",
@@ -28,8 +28,8 @@
   "model_cv_mean": 0.5063180827886711,
   "model_cv_std": 0.02308134664601138,
   "numeric_snapshot": {
-    "Gas_Close": 4.006999969482422,
-    "Oil_Close": 56.54999923706055,
+    "Gas_Close": 3.9839999675750732,
+    "Oil_Close": 56.65999984741211,
     "Storage_latest": null
   },
   "notes": [
