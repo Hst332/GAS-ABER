@@ -1,0 +1,38 @@
+Natural Gas Price Forecast – Explanation
+Dieses Dokument erklärt jede Zeile des Forecast-Outputs, die Berechnungslogik sowie die
+statistische Bedeutung auf Basis der historischen Daten (mehrjährige Historie).
+1. Allgemeine Metadaten
+1 Run time (UTC): Zeitpunkt der Modell-Ausführung.
+2 Data date: Letzter Handelstag der verwendeten Marktdaten.
+3 Sources fetched: Datenquellen (Yahoo Finance für Preise, EIA-basierte Daten für Storage und
+Feedgas).
+4 model_cv: Durchschnittliche Trefferquote (Cross-Validation) über mehrere Zeitfenster. ≈
+50–52% ist typisch für kurzfristige Directional-Modelle.
+2. Wahrscheinlichkeiten
+1 Model raw prob UP: Roh-Wahrscheinlichkeit aus dem Klassifikationsmodell.
+2 Adjusted prob UP/DOWN: Angepasste Wahrscheinlichkeit nach Regime-, Risiko- und
+Neutralitätsfiltern.
+3 Model confidence: Kombinierte Vertrauensmetrik aus CV-Qualität, Feature-Stabilität und
+Datenvollständigkeit.
+3. Confidence Notes
+1 no_trade_neutral_prob: Wahrscheinlichkeit liegt nahe 50%, statistisch kein klarer Vorteil.
+2 counter_trend_up/down: Signal läuft gegen den mittelfristigen Trend (z. B. 50-Tage-SMA).
+4. Numeric Snapshot
+1 Gas_Close: Letzter Schlusskurs Natural Gas Futures (NG=F).
+2 Oil_Close: Letzter Schlusskurs Crude Oil Futures (CL=F).
+3 Storage(latest): Letzter verfügbarer EIA-Lagerstand (Bcf).
+5. Assessment & Signal
+1 Signal (UP/DOWN): Richtungsentscheidung basierend auf Adjusted Probability.
+2 Signal strength (STRONG/WEAK): Abhängig von Wahrscheinlichkeitsschwellen und
+Modell-Confidence.
+3 Position size: Empfohlene Positionsgröße (-1 bis +1), inkl. Risiko- und Trendfilter.
+4 Risk cap: Reduktionsfaktor bei schwacher Modellgüte oder geringer Confidence.
+5 Trade bias: LONG oder SHORT-Richtung.
+6 Execution OK: True = Trade erlaubt, False = Trade wird aus Risiko-/Regelgründen unterdrückt.
+6. Historische Aussagekraft
+Das Modell wird auf mehreren Jahren historischer Daten (typisch 8–12 Jahre, >2500 Handelstage)
+trainiert. Die Cross-Validation zeigt, dass STRONG-Signale historisch eine höhere Trefferquote
+haben (≈55–58%), während WEAK-Signale nahe 50–52% liegen. Das Modell ist damit ein
+probabilistisches Entscheidungswerkzeug, kein Garantiesystem.
+Wichtiger Hinweis: Dieses System dient der strukturierten Entscheidungsunterstützung.
+Risikomanagement und Disziplin sind entscheidend für langfristige Profitabilität.
