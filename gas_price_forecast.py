@@ -771,119 +771,23 @@ def main():
     
     result["position_size"] = position_size
     result["trend_regime"] = "UPTREND" if trend_up else "DOWNTREND"
-   # -----------------------
-    # Phase 5B (PATCH A): Clean Historical Backtest (NO PLACEBO)
-    # -----------------------
-    try:
-        bt = df.copy()
+    #===== A2: Historical Signal Reconstruction =====
+    hist = df.copy()
     
-        # 1) Historical probabilities
-        probs = model.predict_proba(bt[feature_cols].fillna(0.0))[:, 1]
-        bt["Prob_UP"] = probs
+    probs = model.predict_proba(hist[feature_cols].fillna(0.0))[:, 1]
+    hist["Prob_UP"] = probs
     
-        # 2) Historical signal
-        bt["Hist_Signal"] = np.where(bt["Prob_UP"] > 0.5, "UP", "DOWN")
+    # Historical signal
+    hist["Hist_Signal"] = np.where(hist["Prob_UP"] > 0.5, "UP", "DOWN")
     
-        # 3) Historical signal strength (same rules as live)
-        bt["Hist_Strength"] = "NEUTRAL"
-    
-        bt.loc[
-            (bt["Hist_Signal"] == "UP") & (bt["Prob_UP"] >= 0.58),
-            "Hist_Strength"
-        ] = "STRONG_UP"
-    
-        bt.loc[
-            (bt["Hist_Signal"] == "UP") & (bt["Prob_UP"] < 0.58),
-            "Hist_Strength"
-        ] = "WEAK_UP"
-    
-        bt.loc[
-            (bt["Hist_Signal"] == "DOWN") & (bt["Prob_UP"] <= 0.42),
-            "Hist_Strength"
-        ] = "STRONG_DOWN"
-    
-        bt.loc[
-            (bt["Hist_Signal"] == "DOWN") & (bt["Prob_UP"] > 0.42),
-            "Hist_Strength"
-        ] = "WEAK_DOWN"
-    
-        # 4) Historical position sizing (NO confidence / NO trend filter!)
-        bt["Hist_Position"] = 0.0
-        bt.loc[bt["Hist_Strength"] == "STRONG_UP", "Hist_Position"] = 1.0
-        bt.loc[bt["Hist_Strength"] == "WEAK_UP", "Hist_Position"] = 0.5
-        bt.loc[bt["Hist_Strength"] == "WEAK_DOWN", "Hist_Position"] = -0.5
-        bt.loc[bt["Hist_Strength"] == "STRONG_DOWN", "Hist_Position"] = -1.0
-    
-        # 5) Strategy return (next-day execution)
-        bt["Strategy_Return"] = bt["Hist_Position"].shift(1) * bt["Gas_Return"]
-    
-        # 6) Metrics
-        result["backtest"] = {
-            "hit_rate": round(bt["Strategy_Return"].gt(0).mean(), 3),
-            "avg_daily_return": round(bt["Strategy_Return"].mean(), 5),
-            "cum_pnl": round(bt["Strategy_Return"].cumsum().iloc[-1], 3),
-            "num_trades": int((bt["Hist_Position"] != 0).sum())
-        }
-    
-    except Exception as e:
-        result["backtest"] = {}
-        result["notes"].append(f"backtest_error:{e}")
+    # Historical signal strength
+    hist["Hist_Strength"] = "NEUTRAL"
+    hist.loc[hist["Prob_UP"] >= 0.58, "Hist_Strength"] = "STRONG_UP"
+    hist.loc[(hist["Prob_UP"] >= 0.50) & (hist["Prob_UP"] < 0.58), "Hist_Strength"] = "WEAK_UP"
+    hist.loc[(hist["Prob_UP"] <= 0.42), "Hist_Strength"] = "STRONG_DOWN"
+    hist.loc[(hist["Prob_UP"] > 0.42) & (hist["Prob_UP"] < 0.50), "Hist_Strength"] = "WEAK_DOWN"
 
-    # -----------------------
-    # Phase 5B: Volatility-based scaling
-    # -----------------------
-    vol = df["Gas_Return"].rolling(20).std().iloc[-1]
-    
-    if vol > 0.08:
-        position_size *= 0.5
-        notes.append("high_volatility")
-    elif vol < 0.03:
-        position_size *= 1.1
-    
-    position_size = max(-1.0, min(1.0, position_size))
-    result["position_size"] = position_size
-
-     # Phase 3C: historical hit rate by signal strength
-    try:
-         hist = df.copy()
-         hist["Pred"] = (model.predict_proba(hist[feature_cols])[:, 1] > PROB_THRESHOLD).astype(int)
-         hist["Correct"] = (hist["Pred"] == hist["Target"]).astype(int)
-     
-         hit_rates = (
-             hist.groupby(hist["signal_strength"])["Correct"]
-             .mean()
-             .round(3) 
-             .to_dict()
-         )
-         result["signal_strength_hit_rate"] = hit_rates
-    except Exception:
-         result["signal_strength_hit_rate"] = {}
-    print(f"  Signal strength : {result.get('signal_strength')}")
-    print(f"  Position size   : {result.get('position_size'):.2f}")
-    if "risk_cap" in result:
-        print(f"  Risk cap        : {result.get('risk_cap'):.2f}")
-     # -----------------------
-    # Phase 5C: Lightweight Backtest / PnL
-    # -----------------------
-    try:
-        bt = df.copy()
-    
-        bt["Pred_Signal"] = 0.0
-        bt.loc[bt["signal_strength"] == "STRONG_UP", "Pred_Signal"] = 1.0
-        bt.loc[bt["signal_strength"] == "WEAK_UP", "Pred_Signal"] = 0.5
-        bt.loc[bt["signal_strength"] == "WEAK_DOWN", "Pred_Signal"] = -0.5
-        bt.loc[bt["signal_strength"] == "STRONG_DOWN", "Pred_Signal"] = -1.0
-    
-        bt["Strategy_Return"] = bt["Pred_Signal"] * bt["Gas_Return"].shift(-1)
-        cum_pnl = float(bt["Strategy_Return"].cumsum().iloc[-2])
-    
-        result["backtest"] = {
-            "cum_pnl": round(cum_pnl, 3),
-            "avg_daily_return": round(bt["Strategy_Return"].mean(), 5),
-            "hit_rate": round(bt["Strategy_Return"].gt(0).mean(), 3),
-        }
-    except Exception:
-        result["backtest"] = {}
+   
      # -----------------------
      # Phase 6B: Execution-Ready Signal
      # -----------------------
