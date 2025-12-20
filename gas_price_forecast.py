@@ -793,6 +793,15 @@ def main():
     hist.loc[hist["Hist_Strength"] == "WEAK_UP", "Hist_Position"] = 0.5
     hist.loc[hist["Hist_Strength"] == "WEAK_DOWN", "Hist_Position"] = -0.5
     hist.loc[hist["Hist_Strength"] == "STRONG_DOWN", "Hist_Position"] = -1.0
+    # ===== A4: Clean Backtest =====
+    hist["Strategy_Return"] = hist["Hist_Position"].shift(1) * hist["Gas_Return"]
+    
+    result["backtest"] = {
+        "cum_pnl": float(hist["Strategy_Return"].cumsum().iloc[-1]),
+        "avg_daily_return": float(hist["Strategy_Return"].mean()),
+        "hit_rate": float((hist["Strategy_Return"] > 0).mean()),
+    }
+
     
      # -----------------------
      # Phase 6B: Execution-Ready Signal
