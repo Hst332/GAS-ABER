@@ -1,5 +1,5 @@
 {
-  "run_time": "2025-12-20 21:02:21 UTC",
+  "run_time": "2025-12-20 21:05:32 UTC",
   "data_date": "2025-12-19",
   "sources": {
     "prices_gas": "yahoo:NG=F",
@@ -58,6 +58,11 @@
   "position_size": 0.125,
   "risk_cap": 0.5,
   "trend_regime": "DOWNTREND",
+  "backtest": {
+    "cum_pnl": 26.673370466560918,
+    "avg_daily_return": 0.009671272830515188,
+    "hit_rate": 0.7712939470822762
+  },
   "final_position": 0.12,
   "trade_bias": "LONG",
   "execution_ok": false
