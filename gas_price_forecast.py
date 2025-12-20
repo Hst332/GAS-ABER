@@ -786,8 +786,14 @@ def main():
     hist.loc[(hist["Prob_UP"] >= 0.50) & (hist["Prob_UP"] < 0.58), "Hist_Strength"] = "WEAK_UP"
     hist.loc[(hist["Prob_UP"] <= 0.42), "Hist_Strength"] = "STRONG_DOWN"
     hist.loc[(hist["Prob_UP"] > 0.42) & (hist["Prob_UP"] < 0.50), "Hist_Strength"] = "WEAK_DOWN"
-
-   
+    # ===== A3: Historical Position Sizing =====
+    hist["Hist_Position"] = 0.0
+    
+    hist.loc[hist["Hist_Strength"] == "STRONG_UP", "Hist_Position"] = 1.0
+    hist.loc[hist["Hist_Strength"] == "WEAK_UP", "Hist_Position"] = 0.5
+    hist.loc[hist["Hist_Strength"] == "WEAK_DOWN", "Hist_Position"] = -0.5
+    hist.loc[hist["Hist_Strength"] == "STRONG_DOWN", "Hist_Position"] = -1.0
+    
      # -----------------------
      # Phase 6B: Execution-Ready Signal
      # -----------------------
