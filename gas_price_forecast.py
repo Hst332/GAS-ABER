@@ -48,6 +48,11 @@ SYMBOL_OIL = "CL=F"
 FORECAST_FILE_TXT = "forecast_output.txt"
 FORECAST_FILE_JSON = "forecast_output.json"
 PROB_THRESHOLD = 0.5
+ACCOUNT_CAPITAL_EUR = 5000        # <- jederzeit änderbar
+MAX_RISK_PER_TRADE = 0.01         # 1% pro Trade
+MAX_WEEKLY_RISK = 0.05            # 5% pro Woche
+TARGET_WEEKLY_RETURN = 0.05       # 250€ bei 5.000€
+
 
 # -----------------------
 # Helpers
@@ -540,6 +545,9 @@ def write_outputs(result: Dict, txt_path: str = FORECAST_FILE_TXT, json_path: st
     lines.append(f"  Trade bias      : {result.get('trade_bias')}")
     lines.append(f"  Final position  : {result.get('final_position')}")
     lines.append(f"  Execution OK    : {result.get('execution_ok')}")
+    lines.append(f"Capital (€)       : {result.get('capital')}")
+    lines.append(f"Position (€)      : {result.get('position_eur')}")
+    lines.append(f"Weekly target (€) : {result.get('weekly_target_eur')}")
     lines.append("===================================")
 
     # write txt
@@ -718,6 +726,21 @@ def main():
         result["perm_importance"] = {}
         result["notes"].append(f"perm_error:{e}")
     # -----------------------
+    # Risk per Signal Strength
+    # -----------------------
+    SIGNAL_RISK_MAP = {
+        "STRONG_UP": 1.0,
+        "WEAK_UP": 0.5,
+        "WEAK_DOWN": 0.5,
+        "STRONG_DOWN": 1.0,
+        "NO_TRADE": 0.0
+    }
+    
+    risk_factor = SIGNAL_RISK_MAP.get(signal_strength, 0.0)
+
+     
+
+    # -----------------------
     # Phase 4B: Position Sizing
     # -----------------------
     if signal_strength.startswith("STRONG") and model_confidence >= 0.8:
@@ -813,7 +836,12 @@ def main():
     if result.get("backtest", {}).get("hit_rate", 1.0) < 0.48:
         execution_ok = False
         result["notes"].append("execution_blocked_low_hit_rate")
-    
+     # -----------------------
+     # Capital-based Position Sizing
+     # -----------------------
+     risk_eur = ACCOUNT_CAPITAL_EUR * MAX_RISK_PER_TRADE
+     position_eur = risk_eur * risk_factor * confidence
+
           
     trade_bias = (
         "LONG" if final_position > 0 else
@@ -826,7 +854,13 @@ def main():
     result["execution_ok"] = execution_ok
     result["final_position"] = round(position_size, 2)
     result["backtest_note"] = "Backtest is diagnostic only. No feedback into model."
+    result["capital"] = ACCOUNT_CAPITAL_EUR
+    result["position_eur"] = round(position_eur, 2)
+    result["weekly_target_eur"] = round(
+    ACCOUNT_CAPITAL_EUR * TARGET_WEEKLY_RETURN, 2
+)
 
+   
     # 9) write outputs
     write_outputs(result)
 # -----------------------
