@@ -899,7 +899,9 @@ def main():
     trade_eur = max(base_trade_eur, MIN_TRADE_EUR)
     
     # Leverage berücksichtigen
-    trade_notional = trade_eur * MAX_LEVERAGEremaining_target = WEEKLY_TARGET_EUR - weekly_pnl
+    trade_notional = trade_eur * MAX_LEVERAGE
+    remaining_target = WEEKLY_TARGET_EUR - weekly_pnl
+
 
     # Wenn wir zurückliegen → leicht aggressiver
     if remaining_target > 0:
