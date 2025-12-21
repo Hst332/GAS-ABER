@@ -506,6 +506,21 @@ def rolling_permutation_importance_ts(df: pd.DataFrame, features: List[str], win
 # -----------------------
 # Outputs writer
 # -----------------------
+def load_capital_state():
+    if not os.path.exists(CAPITAL_STATE_FILE):
+        return {
+            "capital": START_CAPITAL,
+            "weekly_pnl": 0.0,
+            "week_id": datetime.utcnow().isocalendar().week,
+            "last_trade_pnl": 0.0
+        }
+    with open(CAPITAL_STATE_FILE, "r") as f:
+        return json.load(f)
+
+def save_capital_state(state):
+    with open(CAPITAL_STATE_FILE, "w") as f:
+        json.dump(state, f, indent=2)
+
 def write_outputs(result: Dict, txt_path: str = FORECAST_FILE_TXT, json_path: str = FORECAST_FILE_JSON) -> None:
     """
     result dict expected keys:
@@ -554,20 +569,6 @@ def write_outputs(result: Dict, txt_path: str = FORECAST_FILE_TXT, json_path: st
     lines.append(f"Notional (€)      : {result['trade_notional']}")
     lines.append(f"Weekly target (€) : {result['weekly_target']}")
     lines.append(f"Weekly PnL (€)    : {result['weekly_pnl']}")
-    def load_capital_state():
-        if not os.path.exists(CAPITAL_STATE_FILE):
-            return {
-                "capital": START_CAPITAL,
-                "weekly_pnl": 0.0,
-                "week_id": datetime.utcnow().isocalendar().week,
-                "last_trade_pnl": 0.0
-            }
-        with open(CAPITAL_STATE_FILE, "r") as f:
-            return json.load(f)
-    
-    def save_capital_state(state):
-        with open(CAPITAL_STATE_FILE, "w") as f:
-            json.dump(state, f, indent=2)
     lines.append("===================================")
 
     # write txt
@@ -760,29 +761,9 @@ def main():
 
      
 
-    # -----------------------
-    # Phase 4B: Position Sizing
-    # -----------------------
-    if signal_strength.startswith("STRONG") and model_confidence >= 0.8:
-        position_size = 1.0
-    elif signal_strength.startswith("WEAK") and confidence >= 0.65:
-        position_size = 0.5
-    elif model_confidence < 0.55 or "no_trade" in confidence_notes:
-        position_size = 0.0
-    else:
-     position_size = 0.25
-    # Phase 3D: confidence-weighted position size
+     # Phase 4B skipped – superseded by Phase 3D
     position_size = 0.0
-    if signal_strength == "STRONG_UP":
-        position_size = +1.0
-    elif signal_strength == "WEAK_UP":
-        position_size = +0.5
-    elif signal_strength == "WEAK_DOWN":
-        position_size = -0.5
-    elif signal_strength == "STRONG_DOWN":
-        position_size = -1.0
 
-    result["position_size"] = position_size
      # Phase 3E: risk cap based on model quality
     risk_cap = 1.0
 
@@ -879,11 +860,15 @@ def main():
     result["weekly_target_eur"] = round(
     ACCOUNT_CAPITAL_EUR * TARGET_WEEKLY_RETURN, 2
 )
+    capital = capital_state["capital"]   
     result["capital"] = round(capital, 2)
     result["trade_eur"] = round(trade_eur, 2)
     result["trade_notional"] = round(trade_notional, 2)
     result["weekly_target"] = WEEKLY_TARGET_EUR
     result["weekly_pnl"] = round(weekly_pnl, 2)
+    ACCOUNT_CAPITAL_EUR = START_CAPITAL
+    TARGET_WEEKLY_RETURN = WEEKLY_TARGET_EUR / START_CAPITAL
+    CAPITAL_STATE_FILE = "capital_state.json"
 
     # -----------------------
     # Phase 7A: Trade sizing (€)
