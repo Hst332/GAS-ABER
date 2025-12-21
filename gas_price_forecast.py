@@ -585,6 +585,13 @@ def write_outputs(result: Dict, txt_path: str = FORECAST_FILE_TXT, json_path: st
 # Main orchestration
 # -----------------------
 def main():
+    # -----------------------
+    # Load capital state (SINGLE SOURCE OF TRUTH)
+    # -----------------------
+    capital_state = load_capital_state()
+    capital = capital_state["capital"]
+    weekly_pnl = capital_state["weekly_pnl"]
+
     # 1) load prices
     try:
         df_prices, sources = load_prices()
