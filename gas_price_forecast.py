@@ -48,10 +48,14 @@ SYMBOL_OIL = "CL=F"
 FORECAST_FILE_TXT = "forecast_output.txt"
 FORECAST_FILE_JSON = "forecast_output.json"
 PROB_THRESHOLD = 0.5
-ACCOUNT_CAPITAL_EUR = 5000        # <- jederzeit änderbar
-MAX_RISK_PER_TRADE = 0.01         # 1% pro Trade
-MAX_WEEKLY_RISK = 0.05            # 5% pro Woche
-TARGET_WEEKLY_RETURN = 0.05       # 250€ bei 5.000€
+# -----------------------
+# Capital Management
+# -----------------------
+START_CAPITAL = 5000.0
+WEEKLY_TARGET_EUR = 250.0
+MAX_RISK_PER_TRADE = 0.02      # 2% vom Kapital
+MAX_LEVERAGE = 5               # z.B. Futures / CFD Faktor
+MIN_TRADE_EUR = 25.0
 
 
 # -----------------------
@@ -545,9 +549,26 @@ def write_outputs(result: Dict, txt_path: str = FORECAST_FILE_TXT, json_path: st
     lines.append(f"  Trade bias      : {result.get('trade_bias')}")
     lines.append(f"  Final position  : {result.get('final_position')}")
     lines.append(f"  Execution OK    : {result.get('execution_ok')}")
-    lines.append(f"Capital (€)       : {result.get('capital')}")
-    lines.append(f"Position (€)      : {result.get('position_eur')}")
-    lines.append(f"Weekly target (€) : {result.get('weekly_target_eur')}")
+    lines.append(f"Capital (€)       : {result['capital']}")
+    lines.append(f"Position (€)      : {result['trade_eur']}")
+    lines.append(f"Notional (€)      : {result['trade_notional']}")
+    lines.append(f"Weekly target (€) : {result['weekly_target']}")
+    lines.append(f"Weekly PnL (€)    : {result['weekly_pnl']}")
+     CAPITAL_STATE_FILE = "capital_state.json"
+    def load_capital_state():
+        if not os.path.exists(CAPITAL_STATE_FILE):
+            return {
+                "capital": START_CAPITAL,
+                "weekly_pnl": 0.0,
+                "week_id": datetime.utcnow().isocalendar().week,
+                "last_trade_pnl": 0.0
+            }
+        with open(CAPITAL_STATE_FILE, "r") as f:
+            return json.load(f)
+    
+    def save_capital_state(state):
+        with open(CAPITAL_STATE_FILE, "w") as f:
+            json.dump(state, f, indent=2)
     lines.append("===================================")
 
     # write txt
@@ -859,6 +880,36 @@ def main():
     result["weekly_target_eur"] = round(
     ACCOUNT_CAPITAL_EUR * TARGET_WEEKLY_RETURN, 2
 )
+    result["capital"] = round(capital, 2)
+    result["trade_eur"] = round(trade_eur, 2)
+    result["trade_notional"] = round(trade_notional, 2)
+    result["weekly_target"] = WEEKLY_TARGET_EUR
+    result["weekly_pnl"] = round(weekly_pnl, 2)
+
+    # -----------------------
+    # Phase 7A: Trade sizing (€)
+    # -----------------------
+    capital_state = load_capital_state()
+    
+    capital = capital_state["capital"]
+    weekly_pnl = capital_state["weekly_pnl"]
+    
+    risk_eur = capital * MAX_RISK_PER_TRADE
+    base_trade_eur = risk_eur * abs(final_position)
+    
+    trade_eur = max(base_trade_eur, MIN_TRADE_EUR)
+    
+    # Leverage berücksichtigen
+    trade_notional = trade_eur * MAX_LEVERAGEremaining_target = WEEKLY_TARGET_EUR - weekly_pnl
+
+    # Wenn wir zurückliegen → leicht aggressiver
+    if remaining_target > 0:
+        urgency_factor = min(1.5, remaining_target / WEEKLY_TARGET_EUR + 1)
+    else:
+        urgency_factor = 0.8  # defensiver nach Zielerreichung
+    
+    trade_notional *= urgency_factor
+
 
    
     # 9) write outputs
