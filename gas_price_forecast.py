@@ -857,16 +857,11 @@ def main():
     result["execution_ok"] = execution_ok
     result["final_position"] = round(position_size, 2)
     result["backtest_note"] = "Backtest is diagnostic only. No feedback into model."
-    result["capital"] = ACCOUNT_CAPITAL_EUR
     result["position_eur"] = round(position_eur, 2)
-    result["weekly_target_eur"] = round(
-    ACCOUNT_CAPITAL_EUR * TARGET_WEEKLY_RETURN, 2
-)
     capital = capital_state["capital"]   
     result["capital"] = round(capital, 2)
-    result["trade_eur"] = round(trade_eur, 2)
     result["trade_notional"] = round(trade_notional, 2)
-    result["weekly_target"] = WEEKLY_TARGET_EUR
+    result["weekly_target_eur"] = WEEKLY_TARGET_EUR
     result["weekly_pnl"] = round(weekly_pnl, 2)
     ACCOUNT_CAPITAL_EUR = START_CAPITAL
     TARGET_WEEKLY_RETURN = WEEKLY_TARGET_EUR / START_CAPITAL
