@@ -554,7 +554,6 @@ def write_outputs(result: Dict, txt_path: str = FORECAST_FILE_TXT, json_path: st
     lines.append(f"Notional (€)      : {result['trade_notional']}")
     lines.append(f"Weekly target (€) : {result['weekly_target']}")
     lines.append(f"Weekly PnL (€)    : {result['weekly_pnl']}")
-     CAPITAL_STATE_FILE = "capital_state.json"
     def load_capital_state():
         if not os.path.exists(CAPITAL_STATE_FILE):
             return {
