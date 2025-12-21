@@ -45,9 +45,14 @@ except Exception:
 START_DATE = "2015-01-01"
 SYMBOL_GAS = "NG=F"
 SYMBOL_OIL = "CL=F"
+
 FORECAST_FILE_TXT = "forecast_output.txt"
 FORECAST_FILE_JSON = "forecast_output.json"
+
+CAPITAL_STATE_FILE = "capital_state.json"   # <<< HIER NEU
+
 PROB_THRESHOLD = 0.5
+
 # -----------------------
 # Capital Management
 # -----------------------
@@ -692,11 +697,10 @@ def main():
         notes.append("no_trade_low_conf")
     
     if not trade_allowed:
-        signal = "NO_TRADE"
-     
-    # determine signal
+    signal = "NO_TRADE"
+    else:
     signal = "UP" if prob_up_adj > PROB_THRESHOLD else "DOWN"
- 
+
       # Phase 3B: Signal strength classification
     signal_strength = "NEUTRAL"
     
@@ -769,7 +773,9 @@ def main():
      
 
      # Phase 4B skipped – superseded by Phase 3D
-    position_size = 0.0
+    position_size = final_position * risk_factor
+    position_size *= risk_cap
+    position_size = max(-1.0, min(1.0, position_size))
 
      # Phase 3E: risk cap based on model quality
     risk_cap = 1.0
@@ -778,9 +784,6 @@ def main():
         risk_cap *= 0.5
     if confidence < 0.7:
         risk_cap *= 0.5
-
-    position_size = position_size * risk_cap
-    position_size = max(-1.0, min(1.0, position_size))
 
     result["position_size"] = position_size
     result["risk_cap"] = risk_cap
@@ -867,12 +870,10 @@ def main():
     result["position_eur"] = round(position_eur, 2)
     capital = capital_state["capital"]   
     result["capital"] = round(capital, 2)
-    result["trade_notional"] = round(trade_notional, 2)
     result["weekly_target_eur"] = WEEKLY_TARGET_EUR
     result["weekly_pnl"] = round(weekly_pnl, 2)
     ACCOUNT_CAPITAL_EUR = START_CAPITAL
     TARGET_WEEKLY_RETURN = WEEKLY_TARGET_EUR / START_CAPITAL
-    CAPITAL_STATE_FILE = "capital_state.json"
 
     # -----------------------
     # Phase 7A: Trade sizing (€)
@@ -889,6 +890,9 @@ def main():
     
     # Leverage berücksichtigen
     trade_notional = trade_eur * MAX_LEVERAGE
+    result["trade_eur"] = round(trade_eur, 2)
+    result["trade_notional"] = round(trade_notional, 2)
+
     remaining_target = WEEKLY_TARGET_EUR - weekly_pnl
 
 
