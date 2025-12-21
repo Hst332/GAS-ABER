@@ -840,7 +840,9 @@ def main():
      # -----------------------
      # Capital-based Position Sizing
      # -----------------------
+    ACCOUNT_CAPITAL_EUR = capital
     risk_eur = ACCOUNT_CAPITAL_EUR * MAX_RISK_PER_TRADE
+
     position_eur = risk_eur * risk_factor * confidence
 
           
