@@ -20,13 +20,8 @@ import pandas as pd
 from datetime import datetime
 import pytz
 
-utc_now = datetime.utcnow().replace(tzinfo=pytz.UTC)
-local_tz = pytz.timezone("Europe/Berlin")
-local_now = utc_now.astimezone(local_tz)
+utc_now = datetime.utcnow()
 
-utc_now = datetime.utcnow().replace(tzinfo=pytz.UTC)
-local_tz = pytz.timezone("Europe/Berlin")
-local_now = utc_now.astimezone(local_tz)
 
 from typing import Dict, List, Optional, Tuple
 
@@ -760,6 +755,11 @@ def main():
         "signal_strength": signal_strength,
     }
     
+    local_tz = pytz.timezone("Europe/Berlin")
+    local_now = utc_now.astimezone(local_tz)
+    utc_now = datetime.utcnow().replace(tzinfo=pytz.UTC)
+    local_tz = pytz.timezone("Europe/Berlin")
+    local_now = utc_now.astimezone(local_tz)
     result["run_time_utc"] = utc_now.strftime("%Y-%m-%d %H:%M:%S UTC")
     result["run_time_local"] = local_now.strftime("%Y-%m-%d %H:%M:%S %Z")
 
@@ -930,13 +930,13 @@ def main():
         urgency_factor = 0.8  # defensiver nach Zielerreichung
     
     trade_notional *= urgency_factor
-
-
-   
-    # 9) write outputs
-    write_outputs(result)
     # -----------------------
     # Entrypoint
     # -----------------------
     if __name__ == "__main__":
         main()
+
+   
+    # 9) write outputs
+    write_outputs(result)
+  
