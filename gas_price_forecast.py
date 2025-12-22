@@ -698,7 +698,7 @@ def main():
     
     if not trade_allowed:
         signal = "NO_TRADE"
-        else:
+    else:
         signal = "UP" if prob_up_adj > PROB_THRESHOLD else "DOWN"
 
       # Phase 3B: Signal strength classification
