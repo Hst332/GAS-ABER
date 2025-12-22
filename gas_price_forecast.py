@@ -24,6 +24,10 @@ utc_now = datetime.utcnow().replace(tzinfo=pytz.UTC)
 local_tz = pytz.timezone("Europe/Berlin")
 local_now = utc_now.astimezone(local_tz)
 
+utc_now = datetime.utcnow().replace(tzinfo=pytz.UTC)
+local_tz = pytz.timezone("Europe/Berlin")
+local_now = utc_now.astimezone(local_tz)
+
 result["run_time_utc"] = utc_now.strftime("%Y-%m-%d %H:%M:%S UTC")
 result["run_time_local"] = local_now.strftime("%Y-%m-%d %H:%M:%S %Z")
 
@@ -758,6 +762,9 @@ def main():
         "signal": signal,
         "signal_strength": signal_strength,
     }
+    
+    result["run_time_utc"] = utc_now.strftime("%Y-%m-%d %H:%M:%S UTC")
+    result["run_time_local"] = local_now.strftime("%Y-%m-%d %H:%M:%S %Z")
 
     # 8) permutation importance (final diagnostic)
     try:
