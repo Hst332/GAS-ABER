@@ -18,6 +18,15 @@ import math
 import numpy as np
 import pandas as pd
 from datetime import datetime
+import pytz
+
+utc_now = datetime.utcnow().replace(tzinfo=pytz.UTC)
+local_tz = pytz.timezone("Europe/Berlin")
+local_now = utc_now.astimezone(local_tz)
+
+result["run_time_utc"] = utc_now.strftime("%Y-%m-%d %H:%M:%S UTC")
+result["run_time_local"] = local_now.strftime("%Y-%m-%d %H:%M:%S %Z")
+
 from typing import Dict, List, Optional, Tuple
 
 # ML
@@ -535,7 +544,8 @@ def write_outputs(result: Dict, txt_path: str = FORECAST_FILE_TXT, json_path: st
     lines.append("===================================")
     lines.append("      NATURAL GAS PRICE FORECAST")
     lines.append("===================================")
-    lines.append(f"Run time (UTC): {now_str}")
+    lines.append(f"Run time (UTC)  : {result['run_time_utc']}")
+    lines.append(f"Run time (Local): {result['run_time_local']}")
     lines.append(f"Data date     : {result.get('data_date','-')}")
     lines.append("")
     lines.append("Sources fetched:")
