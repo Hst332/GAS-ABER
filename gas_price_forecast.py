@@ -930,13 +930,8 @@ def main():
         urgency_factor = 0.8  # defensiver nach Zielerreichung
     
     trade_notional *= urgency_factor
-    # -----------------------
-    # Entrypoint
-    # -----------------------
+
+    write_outputs(result)
     if __name__ == "__main__":
         main()
-
-   
-    # 9) write outputs
-    write_outputs(result)
   
