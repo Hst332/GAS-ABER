@@ -759,6 +759,7 @@ def main():
     # -----------------------
     # Risk per Signal Strength
     # -----------------------
+    final_position = 0.0
     SIGNAL_RISK_MAP = {
         "STRONG_UP": 1.0,
         "WEAK_UP": 0.5,
