@@ -697,9 +697,9 @@ def main():
         notes.append("no_trade_low_conf")
     
     if not trade_allowed:
-    signal = "NO_TRADE"
-    else:
-    signal = "UP" if prob_up_adj > PROB_THRESHOLD else "DOWN"
+        signal = "NO_TRADE"
+        else:
+        signal = "UP" if prob_up_adj > PROB_THRESHOLD else "DOWN"
 
       # Phase 3B: Signal strength classification
     signal_strength = "NEUTRAL"
