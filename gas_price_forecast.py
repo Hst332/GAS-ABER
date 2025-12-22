@@ -775,6 +775,15 @@ def main():
         final_position = 0.0
     risk_factor = SIGNAL_RISK_MAP.get(signal_strength, 0.0)
 
+    # Basisposition aus Signalrichtung
+    final_position = (
+        1.0 if signal == "UP" else
+       -1.0 if signal == "DOWN" else
+        0.0
+    )
+    
+    position_size = final_position * risk_factor
+
      # Phase 4B skipped – superseded by Phase 3D
     position_size = final_position * risk_factor
     position_size *= risk_cap
