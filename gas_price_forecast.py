@@ -42,13 +42,13 @@ except Exception:
 # -----------------------
 # Config
 # -----------------------
+CAPITAL_STATE_FILE = "capital_state.json"
 START_DATE = "2015-01-01"
 SYMBOL_GAS = "NG=F"
 SYMBOL_OIL = "CL=F"
 
 FORECAST_FILE_TXT = "forecast_output.txt"
 FORECAST_FILE_JSON = "forecast_output.json"
-CAPITAL_STATE_FILE = "capital_state.json"
 
 PROB_THRESHOLD = 0.5
 
