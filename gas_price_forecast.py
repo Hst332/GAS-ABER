@@ -767,10 +767,14 @@ def main():
         "STRONG_DOWN": 1.0,
         "NO_TRADE": 0.0
     }
-    
+    # --- A2 FIX: define base final_position from signal ---
+    if signal == "UP":
+        final_position = 1.0
+    elif signal == "DOWN":
+        final_position = -1.0
+    else:
+        final_position = 0.0
     risk_factor = SIGNAL_RISK_MAP.get(signal_strength, 0.0)
-
-     
 
      # Phase 4B skipped – superseded by Phase 3D
     position_size = final_position * risk_factor
