@@ -620,7 +620,8 @@ def main():
         print("[WARN] Not enough data after feature build (rows={})".format(len(df)))
         # still write an informative output with baseline 50/50
         res = {
-            "run_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+            result["run_time_utc"] = utc_now.strftime("%Y-%m-%d %H:%M:%S UTC")
+            result["run_time_local"] = local_now.strftime("%Y-%m-%d %H:%M:%S %Z")
             "data_date": df.index[-1].date().isoformat() if len(df) else None,
             "sources": meta_sources,
             "meta": meta,
@@ -931,7 +932,13 @@ def main():
     
     trade_notional *= urgency_factor
 
-    write_outputs(result)
-    if __name__ == "__main__":
-        main()
+        write_outputs(result)
+
+
+     # -----------------------
+     # Entrypoint
+     # -----------------------
+     if __name__ == "__main__":
+         main()
+
   
