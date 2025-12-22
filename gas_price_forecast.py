@@ -28,9 +28,6 @@ utc_now = datetime.utcnow().replace(tzinfo=pytz.UTC)
 local_tz = pytz.timezone("Europe/Berlin")
 local_now = utc_now.astimezone(local_tz)
 
-result["run_time_utc"] = utc_now.strftime("%Y-%m-%d %H:%M:%S UTC")
-result["run_time_local"] = local_now.strftime("%Y-%m-%d %H:%M:%S %Z")
-
 from typing import Dict, List, Optional, Tuple
 
 # ML
