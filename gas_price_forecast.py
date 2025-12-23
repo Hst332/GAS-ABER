@@ -579,7 +579,7 @@ def write_outputs(result: Dict, txt_path: str = FORECAST_FILE_TXT, json_path: st
     lines.append(f"Capital (€)       : {result['capital']}")
     lines.append(f"Position (€)      : {result['trade_eur']}")
     lines.append(f"Notional (€)      : {result['trade_notional']}")
-    lines.append(f"Weekly target (€) : {result['weekly_target']}")
+    lines.append(f"Weekly target (€) : {result.get('weekly_target_eur')}")
     lines.append(f"Weekly PnL (€)    : {result['weekly_pnl']}")
     lines.append("===================================")
 
@@ -890,7 +890,6 @@ def main():
         "FLAT"
     )
       
-    result["final_position"] = round(final_position, 2)
     result["trade_bias"] = trade_bias
     result["execution_ok"] = execution_ok
     result["final_position"] = round(position_size, 2)
