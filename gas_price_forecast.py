@@ -935,15 +935,16 @@ def main():
         urgency_factor = min(1.5, remaining_target / WEEKLY_TARGET_EUR + 1)
     else:
         urgency_factor = 0.8  # defensiver nach Zielerreichung
-    
-    trade_notional *= urgency_factor
+        trade_notional *= urgency_factor
+
     write_outputs(result)
-    
-    # -----------------------
-    # Entrypoint
-    # -----------------------
-    if __name__ == "__main__":
-        main()
+
+
+# -----------------------
+# Entrypoint
+# -----------------------
+if __name__ == "__main__":
+    main()
 
 
   
