@@ -95,10 +95,11 @@ def main():
     # -----------------------
     # MOCKED DATA (replace with real loaders)
     # -----------------------
-    df = pd.DataFrame({
-        "Gas_Close": np.random.normal(4.0, 0.1, 300),
-        "Oil_Close": np.random.normal(56.0, 0.5, 300)
-    })
+    df = load_prices()
+
+    if len(df) < 200:
+        raise RuntimeError("Not enough price history for reliable forecast")
+
     df.index = pd.date_range(end=pd.Timestamp.utcnow(), periods=len(df), freq="B")
 
     meta_sources = {
