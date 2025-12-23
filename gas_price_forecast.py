@@ -621,7 +621,7 @@ def main():
     if len(df) < 120:
         print("[WARN] Not enough data after feature build (rows={})".format(len(df)))
         # still write an informative output with baseline 50/50
-     res = {
+    res = {
             "data_date": df.index[-1].date().isoformat() if len(df) else None,
             "sources": meta_sources,
             "meta": meta,
