@@ -1,5 +1,5 @@
 {
-  "run_time": "2025-12-23 20:56:10 UTC",
+  "run_time": "2025-12-23 21:14:02 UTC",
   "data_date": "2025-12-23",
   "sources": {
     "prices_gas": "yahoo:NG=F",
@@ -7,23 +7,62 @@
     "storage": "ok",
     "feedgas": "ok"
   },
-  "notes": [],
-  "prob_up_raw": 0.5142,
-  "prob_up_adj": 0.5142,
-  "prob_down_adj": 0.4858,
+  "meta": {
+    "sources": {
+      "storage": "ok",
+      "feedgas": "ok"
+    },
+    "notes": [
+      "storage_loaded",
+      "feedgas_loaded",
+      "volatility_regime_gate",
+      "directional_regime_gate",
+      "pruned:9"
+    ],
+    "rows_after": 2761
+  },
+  "prob_up_raw": 0.5172291862676007,
+  "prob_up_adj": 0.5172291862676007,
+  "prob_down_adj": 0.4827708137323993,
   "confidence": 1.0,
-  "model_cv_mean": 0.5063,
-  "model_cv_std": 0.0231,
+  "model_cv_mean": 0.5078260869565218,
+  "model_cv_std": 0.01664712149484927,
   "numeric_snapshot": {
-    "Gas_Close": 4.007581090951561,
-    "Oil_Close": 55.965801846094124,
+    "Gas_Close": 3.9019999504089355,
+    "Oil_Close": 58.47999954223633,
     "Storage_latest": null
   },
-  "signal": "DOWN",
-  "signal_strength": "WEAK_DOWN",
-  "position_size": 0.5,
+  "notes": [
+    "no_trade_neutral_prob",
+    "counter_trend_up"
+  ],
+  "signal": "UP",
+  "signal_strength": "WEAK_UP",
+  "perm_importance": {
+    "Gas_Return_lag1": 0.06000000000000005,
+    "Oil_Return_lag1": 0.040000000000000036,
+    "Gas_Return_lag2": 0.07600000000000007,
+    "Oil_Return_lag2": 0.040000000000000036,
+    "Gas_Return_lag3": 0.07200000000000006,
+    "Oil_Return_lag3": 0.09600000000000009,
+    "Gas_Return_lag4": 0.06400000000000006,
+    "Oil_Return_lag4": 0.04800000000000004,
+    "Gas_Return_lag5": 0.08400000000000007,
+    "Oil_Return_lag5": 0.04400000000000004,
+    "Days_Since_Storage": 0.0,
+    "Days_Since_Feedgas": 0.0,
+    "Momentum5": 0.05600000000000005,
+    "SMA10": 0.05600000000000005,
+    "Volatility5": 0.06000000000000005
+  },
+  "position_size": 0.125,
   "risk_cap": 0.5,
-  "final_position": 0.25,
+  "trend_regime": "DOWNTREND",
+  "bt_hit_rate": null,
+  "bt_avg_return": null,
+  "signal_strength_hit_rate": {},
+  "backtest": {},
+  "final_position": 0.12,
   "trade_bias": "LONG",
-  "execution_ok": true
+  "execution_ok": false
 }
