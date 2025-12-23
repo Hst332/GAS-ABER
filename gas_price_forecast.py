@@ -932,7 +932,7 @@ def main():
     
     trade_notional *= urgency_factor
 
-        write_outputs(result)
+     write_outputs(result)
 
 
      # -----------------------
