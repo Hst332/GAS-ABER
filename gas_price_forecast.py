@@ -932,13 +932,13 @@ def main():
     
     trade_notional *= urgency_factor
 
-     write_outputs(result)
+    write_outputs(result)
 
 
      # -----------------------
      # Entrypoint
      # -----------------------
-     if __name__ == "__main__":
+   if __name__ == "__main__":
          main()
 
   
