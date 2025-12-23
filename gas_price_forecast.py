@@ -616,33 +616,39 @@ def main():
     # merge sources into meta
     meta_sources = {"prices_gas": sources.get("gas"), "prices_oil": sources.get("oil"),
                     "storage": meta.get("sources", {}).get("storage"), "feedgas": meta.get("sources", {}).get("feedgas")}
- # 3) ensure enough rows
-if len(df) < 120:
-    print("[WARN] Not enough data after feature build (rows={})".format(len(df)))
+    # 3) ensure enough rows
+    if len(df) < 120:
+        print("[WARN] Not enough data after feature build (rows={})".format(len(df)))
 
-    # still write an informative output with baseline 50/50
-    res = {
-        "run_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
-        "data_date": df.index[-1].date().isoformat() if len(df) else None,
-        "sources": meta_sources,
-        "meta": meta,
-        "prob_up_raw": 0.5,
-        "prob_up_adj": 0.5,
-        "prob_down_adj": 0.5,
-        "confidence": 0.0,
-        "model_cv_mean": 0.0,
-        "model_cv_std": 0.0,
-        "numeric_snapshot": {
-            "Gas_Close": df["Gas_Close"].iloc[-1] if len(df) else None,
-            "Oil_Close": df["Oil_Close"].iloc[-1] if len(df) else None,
-            "Storage_latest": None
-        },
-        "notes": ["not_enough_data"],
-        "signal": "UNKNOWN"
-    }
+        res = {
+            "run_time_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "run_time_local": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "data_date": df.index[-1].date().isoformat() if len(df) else None,
+            "sources": meta_sources,
+            "meta": meta,
+            "prob_up_raw": 0.5,
+            "prob_up_adj": 0.5,
+            "prob_down_adj": 0.5,
+            "confidence": 0.0,
+            "model_cv_mean": 0.0,
+            "model_cv_std": 0.0,
+            "numeric_snapshot": {
+                "Gas_Close": df["Gas_Close"].iloc[-1] if len(df) else None,
+                "Oil_Close": df["Oil_Close"].iloc[-1] if len(df) else None,
+                "Storage_latest": None
+            },
+            "notes": ["not_enough_data"],
+            "signal": "UNKNOWN",
+            "capital": capital,
+            "trade_eur": 0.0,
+            "trade_notional": 0.0,
+            "weekly_target": WEEKLY_TARGET_EUR,
+            "weekly_pnl": weekly_pnl
+        }
 
-    write_outputs(res)
-    return
+        write_outputs(res)
+        return
+
     # 4) feature list
     feature_cols = [c for c in df.columns if isinstance(c, str) and (c.startswith("Gas_Return_lag") or c.startswith("Oil_Return_lag"))]
     # include optional surprises
