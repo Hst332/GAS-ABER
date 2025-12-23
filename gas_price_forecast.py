@@ -617,7 +617,7 @@ def main():
     meta_sources = {"prices_gas": sources.get("gas"), "prices_oil": sources.get("oil"),
                     "storage": meta.get("sources", {}).get("storage"), "feedgas": meta.get("sources", {}).get("feedgas")}
 
-    # 3) ensure enough rows
+       # 3) ensure enough rows
     if len(df) < 120:
         print("[WARN] Not enough data after feature build (rows={})".format(len(df)))
         # still write an informative output with baseline 50/50
@@ -636,11 +636,12 @@ def main():
                 "Oil_Close": df["Oil_Close"].iloc[-1] if len(df) else None,
                 "Storage_latest": None
             },
-            "notes": ["not_enough_data"] ,
+            "notes": ["not_enough_data"],
             "signal": "UNKNOWN"
-       }
-       write_outputs(res)
-       return
+    }
+    write_outputs(res)
+    return
+
 
     # 4) feature list
     feature_cols = [c for c in df.columns if isinstance(c, str) and (c.startswith("Gas_Return_lag") or c.startswith("Oil_Return_lag"))]
