@@ -638,9 +638,9 @@ def main():
             },
             "notes": ["not_enough_data"] ,
             "signal": "UNKNOWN"
-        }
-        write_outputs(res)
-        return
+       }
+       write_outputs(res)
+       return
 
     # 4) feature list
     feature_cols = [c for c in df.columns if isinstance(c, str) and (c.startswith("Gas_Return_lag") or c.startswith("Oil_Return_lag"))]
