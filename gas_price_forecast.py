@@ -939,12 +939,12 @@ def main():
 
     write_outputs(result)
 
-
-# -----------------------
-# Entrypoint
-# -----------------------
-if __name__ == "__main__":
-    main()
+    
+    # -----------------------
+    # Entrypoint
+    # -----------------------
+    if __name__ == "__main__":
+        main()
 
 
   
