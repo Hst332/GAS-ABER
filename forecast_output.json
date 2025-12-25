@@ -1,11 +1,11 @@
 {
-  "run_time": "2025-12-24 13:39:07 UTC",
+  "run_time": "2025-12-25 06:54:40 UTC",
   "data_date": "2025-12-24",
-  "prob_up": 0.5155,
-  "prob_down": 0.4845,
+  "prob_up": 0.4813,
+  "prob_down": 0.5187,
   "signal": "NO_TRADE",
-  "cv_mean": 0.5066132264529057,
-  "cv_std": 0.01630036024662345,
+  "cv_mean": 0.5070140280561122,
+  "cv_std": 0.015677440653793943,
   "sources": {
     "prices": "Yahoo NG=F",
     "storage": "missing"
