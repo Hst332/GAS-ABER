@@ -1,12 +1,12 @@
 ===================================
    NATURAL GAS FORECAST – CODE A
 ===================================
-Run time (UTC): 2025-12-25 06:54:40 UTC
-Data date     : 2025-12-24
+Run time (UTC): 2025-12-26 06:54:14 UTC
+Data date     : 2025-12-26
 
-Model CV      : 50.70% ± 1.57%
+Model CV      : 50.50% ± 1.56%
 
-Prob UP       : 48.13%
-Prob DOWN     : 51.87%
+Prob UP       : 49.99%
+Prob DOWN     : 50.01%
 Signal        : NO_TRADE
 ===================================
