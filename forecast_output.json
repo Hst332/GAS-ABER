@@ -1,8 +1,8 @@
 {
-  "run_time": "2025-12-26 06:54:14 UTC",
+  "run_time": "2025-12-27 06:52:38 UTC",
   "data_date": "2025-12-26",
-  "prob_up": 0.4999,
-  "prob_down": 0.5001,
+  "prob_up": 0.4652,
+  "prob_down": 0.5348,
   "signal": "NO_TRADE",
   "cv_mean": 0.5050100200400801,
   "cv_std": 0.01562612319809052,
